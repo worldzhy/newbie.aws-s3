@@ -17,7 +17,7 @@ model S3File {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  @@schema("microservice/aws-s3")
+  @@schema("microservice/newbie.aws-s3/src")
 }
 
 model S3Bucket {
@@ -26,5 +26,5 @@ model S3Bucket {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@schema("microservice/aws-s3")
+  @@schema("microservice/newbie.aws-s3/src")
 }
