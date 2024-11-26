@@ -9,22 +9,36 @@ import {
   GetObjectCommandInput,
   ListObjectsV2Command,
   PutObjectCommand,
+  PutObjectCommandInput,
   S3Client,
 } from '@aws-sdk/client-s3';
 import {getSignedUrl} from '@aws-sdk/s3-request-presigner';
+import {generateUuid} from '@framework/utilities/random.util';
+import {extname} from 'path';
 
 @Injectable()
 export class AwsS3Service {
   private client: S3Client;
   private bucket: string;
+  private region: string;
   private signedUrlExpiresIn: number;
+  private cdnHostname: string | undefined;
 
   constructor(
     private readonly config: ConfigService,
     private readonly prisma: PrismaService
   ) {
+    this.bucket = this.config.getOrThrow<string>('microservices.aws-s3.bucket');
+    this.region = this.config.getOrThrow<string>('microservices.aws-s3.region');
+    this.signedUrlExpiresIn = this.config.getOrThrow<number>(
+      'microservices.aws-s3.signedUrlExpiresIn'
+    );
+    this.cdnHostname = this.config.get<string>(
+      'microservices.aws-s3.cdnHostname'
+    );
+
     this.client = new S3Client({
-      region: this.config.getOrThrow<string>('microservices.aws-s3.region'),
+      region: this.region,
       credentials: {
         accessKeyId: this.config.getOrThrow<string>(
           'microservices.aws-s3.accessKeyId'
@@ -34,10 +48,6 @@ export class AwsS3Service {
         )!,
       },
     });
-    this.bucket = this.config.getOrThrow<string>('microservices.aws-s3.bucket');
-    this.signedUrlExpiresIn = this.config.getOrThrow<number>(
-      'microservices.aws-s3.signedUrlExpiresIn'
-    );
   }
 
   async createBucket(bucketName: string) {
@@ -55,6 +65,11 @@ export class AwsS3Service {
   async getObject(params: GetObjectCommandInput) {
     const {Bucket, Key} = params;
     return await this.client.send(new GetObjectCommand({Bucket, Key}));
+  }
+
+  async putObject(params: PutObjectCommandInput) {
+    const {Bucket, Key, Body} = params;
+    return await this.client.send(new PutObjectCommand({Bucket, Key, Body}));
   }
 
   async createFolder(params: {
@@ -88,9 +103,10 @@ export class AwsS3Service {
   }
 
   async uploadFile(params: {
-    bucket?: string;
     file: Express.Multer.File;
+    bucket?: string;
     parentId?: string;
+    path?: string;
   }) {
     // [step 1] Get workflow folder.
     let s3Key: string = params.file.originalname;
@@ -99,6 +115,8 @@ export class AwsS3Service {
         (await this.getFilePathString(params.parentId)) +
         '/' +
         params.file.originalname;
+    } else if (params.path) {
+      s3Key = `${params.path}/${generateUuid()}${extname(params.file.originalname)}`;
     }
 
     // [step 2] Put file to AWS S3.
@@ -111,7 +129,7 @@ export class AwsS3Service {
     );
 
     // [step 3] Create a record.
-    return await this.prisma.s3File.create({
+    const s3File = await this.prisma.s3File.create({
       data: {
         name: params.file.originalname,
         type: params.file.mimetype,
@@ -122,6 +140,13 @@ export class AwsS3Service {
         parentId: params.parentId,
       },
     });
+
+    return {
+      url: `https://${s3File.s3Bucket}.s3.${this.region}.amazonaws.com/${s3File.s3Key}`,
+      cdnUrl: this.cdnHostname
+        ? `${this.cdnHostname}/${s3File.s3Key}`
+        : undefined,
+    };
   }
 
   async deleteFile(fileId: string) {

@@ -6,7 +6,8 @@
       "secretAccessKey": "process.env.AWS_S3_SECRET_ACCESS_KEY",
       "region": "process.env.AWS_S3_REGION || 'us-east-1'",
       "bucket": "process.env.AWS_S3_BUCKET",
-      "signedUrlExpiresIn": "int(process.env.AWS_S3_SIGNED_URL_EXPIRESIN, 3600)"
+      "signedUrlExpiresIn": "int(process.env.AWS_S3_SIGNED_URL_EXPIRESIN, 3600)",
+      "cdnHostname": "process.env.AWS_S3_CDN_HOSTNAME"
     }
   },
   "env": {
