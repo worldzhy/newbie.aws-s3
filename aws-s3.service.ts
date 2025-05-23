@@ -108,15 +108,16 @@ export class AwsS3Service {
     parentId?: string;
     path?: string;
   }) {
-    // [step 1] Get workflow folder.
-    let s3Key: string = params.file.originalname;
+    // [step 1] Generate s3Key.
+    let s3Key: string;
     if (params.parentId) {
       s3Key =
         (await this.getFilePathString(params.parentId)) +
-        '/' +
-        params.file.originalname;
+        `/${generateUuid()}${extname(params.file.originalname)}`;
     } else if (params.path) {
       s3Key = `${params.path}/${generateUuid()}${extname(params.file.originalname)}`;
+    } else {
+      s3Key = `${generateUuid()}${extname(params.file.originalname)}`;
     }
 
     // [step 2] Put file to AWS S3.
@@ -187,20 +188,21 @@ export class AwsS3Service {
   }
 
   /** Get a signed URL to access an S3 object for signedUrlExpiresIn seconds */
-  async getSignedDownloadUrl(params: {bucket?: string; path: string}) {
+  async getSignedDownloadUrl(params: {bucket?: string; key: string}) {
     const command = new GetObjectCommand({
       Bucket: params.bucket ?? this.bucket,
-      Key: params.path,
+      Key: params.key,
     });
     return await getSignedUrl(this.client, command, {
       expiresIn: this.signedUrlExpiresIn,
     });
   }
 
-  async getSignedUploadUrl(params: {bucket?: string; path: string}) {
+  /** Get a signed URL to upload an S3 object for signedUrlExpiresIn seconds */
+  async getSignedUploadUrl(params: {bucket?: string; key: string}) {
     const command = new PutObjectCommand({
       Bucket: params.bucket ?? this.bucket,
-      Key: params.path,
+      Key: params.key,
     });
     return await getSignedUrl(this.client, command, {
       expiresIn: this.signedUrlExpiresIn,
