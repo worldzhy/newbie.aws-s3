@@ -5,7 +5,7 @@
       "secretAccessKey": "process.env.AWS_S3_SECRET_ACCESS_KEY",
       "region": "process.env.AWS_S3_REGION || 'us-east-1'",
       "bucket": "process.env.AWS_S3_BUCKET",
-      "signedUrlExpiresIn": "int(process.env.AWS_S3_SIGNED_URL_EXPIRESIN, 3600)",
+      "signedUrlExpiresIn": "int(process.env.AWS_S3_SIGNED_URL_EXPIRESIN, 1800)",
       "cdnHostname": "process.env.AWS_S3_CDN_HOSTNAME"
     }
   },
@@ -14,11 +14,11 @@
     "AWS_S3_SECRET_ACCESS_KEY": "",
     "AWS_S3_REGION": "",
     "AWS_S3_BUCKET": "",
-    "AWS_S3_SIGNED_URL_EXPIRESIN": "3600"
+    "AWS_S3_SIGNED_URL_EXPIRESIN": "1800"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.635.0",
-    "@aws-sdk/s3-request-presigner": "^3.635.0",
+    "@aws-sdk/client-s3": "^3.837.0",
+    "@aws-sdk/s3-request-presigner": "^3.837.0",
     "validator": "^13.11.0"
   },
   "devDependencies": {
