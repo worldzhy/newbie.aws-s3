@@ -1,5 +1,15 @@
-import {Controller, Get, Post, Query} from '@nestjs/common';
-import {ApiTags, ApiBearerAuth} from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  ParseFilePipeBuilder,
+  Post,
+  Query,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import {ApiTags, ApiBearerAuth, ApiBody} from '@nestjs/swagger';
+import {FileInterceptor} from '@nestjs/platform-express';
 import {AwsS3FileService} from './aws-s3-file.service';
 
 @ApiTags('AWS / S3')
@@ -21,6 +31,46 @@ export class AwsS3FileController {
   @Get('signedDownloadUrl')
   async getSignedDownloadUrl(@Query('fileId') fileId: string) {
     return await this.s3File.getSignedDownloadUrl(fileId);
+  }
+
+  @Post('uploadFile')
+  @ApiBody({
+    description: 'Upload a file to AWS S3',
+    examples: {
+      a: {
+        value: {
+          parentFolderId: '44f36b0b-2602-45d0-a2ed-b22085d1e845',
+          overwrite: false,
+        },
+      },
+      b: {
+        value: {
+          path: 'uploads',
+        },
+      },
+    },
+  })
+  @UseInterceptors(FileInterceptor('file')) // Receive file
+  async uploadFile(
+    @Body()
+    body: {
+      folderId?: string; // Do not use both `folderId` and `path` at the same time
+      path?: string; // The folder path to upload the file, e.g. 'uploads', not including `/` at the end.
+      overwrite?: boolean; // Default to false, do not overwrite existing files
+    },
+    @UploadedFile(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({fileType: 'pdf|doc|png|jpg|jpeg'})
+        .build()
+    )
+    file: Express.Multer.File
+  ) {
+    await this.s3File.uploadFile({
+      file: file,
+      parentId: body.folderId,
+      path: body.path,
+      overwrite: body.overwrite,
+    });
   }
 
   /* End */

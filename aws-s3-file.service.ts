@@ -98,19 +98,36 @@ export class AwsS3FileService {
   // User upload file to local server, then upload to AWS S3.
   async uploadFile(params: {
     file: Express.Multer.File;
-    parentId?: string;
-    path?: string;
+    parentId?: string; // Do not use both `parentId` and `path` at the same time.
+    path?: string; // The folder path to upload the file, e.g. 'uploads', not including `/` at the end.
+    overwrite?: boolean; // Whether to overwrite the existing file
   }) {
     // [step 1] Generate s3Key.
-    let s3Key: string;
-    if (params.parentId) {
-      s3Key =
-        (await this.getFilePathString(params.parentId)) +
-        `/${generateUuid()}${extname(params.file.originalname)}`;
-    } else if (params.path) {
-      s3Key = `${params.path}/${generateUuid()}${extname(params.file.originalname)}`;
-    } else {
-      s3Key = `${generateUuid()}${extname(params.file.originalname)}`;
+    let s3Key: string | undefined = undefined;
+
+    if (params.overwrite) {
+      const existingFile = await this.prisma.s3File.findFirst({
+        where: {
+          name: params.file.originalname,
+          s3Bucket: this.bucket,
+          parentId: params.parentId,
+        },
+      });
+      if (existingFile) {
+        s3Key = existingFile.s3Key;
+      }
+    }
+
+    if (!s3Key) {
+      if (params.parentId) {
+        s3Key =
+          (await this.getFilePathString(params.parentId)) +
+          `/${generateUuid()}${extname(params.file.originalname)}`;
+      } else if (params.path) {
+        s3Key = `${params.path}/${generateUuid()}${extname(params.file.originalname)}`;
+      } else {
+        s3Key = `${generateUuid()}${extname(params.file.originalname)}`;
+      }
     }
 
     // [step 2] Put file to AWS S3.
