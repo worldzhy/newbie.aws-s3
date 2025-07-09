@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  Param,
   ParseFilePipeBuilder,
   Post,
   Query,
@@ -11,12 +13,29 @@ import {
 import {ApiTags, ApiBearerAuth, ApiBody} from '@nestjs/swagger';
 import {FileInterceptor} from '@nestjs/platform-express';
 import {AwsS3FileService} from './aws-s3-file.service';
+import {createFolderDto} from './aws-s3-file.dto';
 
 @ApiTags('AWS / S3')
 @ApiBearerAuth()
-@Controller('aws-s3')
+@Controller('aws-s3/files')
 export class AwsS3FileController {
   constructor(private readonly s3File: AwsS3FileService) {}
+
+  @Post('folders')
+  @ApiBody({
+    description: 'Create a folder in AWS S3',
+    examples: {
+      a: {
+        value: {
+          name: 'uploads/images',
+          parentId: '44f36b0b-2602-45d0-a2ed-b22085d1e845',
+        },
+      },
+    },
+  })
+  async createFolder(@Body() body: createFolderDto) {
+    return await this.s3File.createFolder(body);
+  }
 
   @Post('signedUploadUrl')
   async getSignedUploadUrl(
@@ -71,6 +90,11 @@ export class AwsS3FileController {
       path: body.path,
       overwrite: body.overwrite,
     });
+  }
+
+  @Delete(':id')
+  async deleteFile(@Param('id') id: string) {
+    return await this.s3File.deleteFile(id);
   }
 
   /* End */

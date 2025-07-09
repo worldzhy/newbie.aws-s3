@@ -23,8 +23,12 @@ export class AwsS3FileService {
     );
   }
 
-  // User downloads a file from AWS S3 directly.
-  // https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/userguide/ShareObjectPreSignedURL.html
+  /*
+   * Get a signed URL for downloading a file from AWS S3.
+   * This URL can be used by the user to download the file directly from S3.
+   * The URL will expire after a certain period of time, which is defined in the AWS S3 configuration.
+   * https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/userguide/ShareObjectPreSignedURL.html
+   */
   async getSignedDownloadUrl(fileId: string) {
     const file = await this.prisma.s3File.findFirstOrThrow({
       where: {id: fileId},
@@ -37,8 +41,12 @@ export class AwsS3FileService {
     });
   }
 
-  // User uploads a file to AWS S3 directly, then create a record in the database.
-  // https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/userguide/PresignedUrlUploadObject.html
+  /*
+   * Get a signed URL for uploading a file to AWS S3.
+   * This URL can be used by the user to upload a file directly to S3.
+   * The URL will expire after a certain period of time, which is defined in the AWS S3 configuration.
+   * https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/userguide/PresignedUrlUploadObject.html
+   */
   async getSignedUploadUrl(params: {
     file: {originalname: string; mimetype: string; size: number};
     parentId?: string;
@@ -74,28 +82,62 @@ export class AwsS3FileService {
     });
   }
 
-  // Create a folder in AWS S3, then create a record in the database.
-  async createFolder(params: {name: string; parentId?: string}) {
-    let s3Key = params.name;
-    if (params.parentId) {
-      s3Key =
-        (await this.getFilePathString(params.parentId)) + '/' + params.name;
+  /*
+   * Create a folder in AWS S3, then create a record in the database.
+   */
+  async createFolder(params: {
+    name: string; // The folder name, e.g. 'uploads', 'uploads/images'.
+    parentId?: string; // The parent folder ID, if not provided, the folder will be created in the root directory.
+  }) {
+    let parentId = params.parentId;
+    let s3Key = '';
+
+    // If there are `/` in the folder name, create multi-level folders.
+    const folderNames = params.name.split('/');
+    if (folderNames.length === 1 && folderNames[0].length === 0) {
+      throw new Error('Folder name cannot be empty.');
     }
 
-    const output = await this.s3.putObject({key: s3Key + '/'});
-    return await this.prisma.s3File.create({
-      data: {
-        name: params.name,
-        type: 'Folder',
-        s3Bucket: this.bucket,
-        s3Key: s3Key,
-        s3Response: output as object,
-        parentId: params.parentId,
-      },
-    });
+    for (let i = 0, j = 0; i < folderNames.length; i++) {
+      if (folderNames[i].length === 0) {
+        continue; // Skip empty folder names.
+      }
+
+      if (j === 0) {
+        if (params.parentId) {
+          s3Key =
+            (await this.getFilePathString(params.parentId)) +
+            '/' +
+            folderNames[i];
+        } else {
+          s3Key = folderNames[i];
+        }
+      } else {
+        s3Key = s3Key + '/' + folderNames[i];
+      }
+
+      const output = await this.s3.putObject({key: s3Key + '/'});
+      const folder = await this.prisma.s3File.create({
+        data: {
+          name: folderNames[i],
+          type: 'Folder',
+          s3Bucket: this.bucket,
+          s3Key: s3Key,
+          s3Response: output as object,
+          parentId: parentId,
+        },
+      });
+
+      parentId = folder.id; // Update parentId for the next iteration.
+      j++; // Increment j to track the level of folder creation.
+    }
+
+    return parentId; // Return the ID of the last created folder.
   }
 
-  // User upload file to local server, then upload to AWS S3.
+  /*
+   *  Upload file to local server, then upload to AWS S3.
+   */
   async uploadFile(params: {
     file: Express.Multer.File;
     parentId?: string; // Do not use both `parentId` and `path` at the same time.
