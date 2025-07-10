@@ -76,7 +76,7 @@ export class AwsS3FileController {
       folderId?: string; // Do not use both `folderId` and `path` at the same time
       path?: string; // The folder path to upload the file, e.g. 'uploads', not including `/` at the end.
       overwrite?: boolean; // Default to false, do not overwrite existing files
-      useFileName?: boolean; // Default to false, do not use the original file name
+      useOriginalName?: boolean; // Default to false, do not use the original file name
     },
     @UploadedFile(
       new ParseFilePipeBuilder()
@@ -90,7 +90,7 @@ export class AwsS3FileController {
       parentId: body.folderId,
       path: body.path,
       overwrite: body.overwrite,
-      useFileName: body.useFileName,
+      useOriginalName: body.useOriginalName,
     });
   }
 
