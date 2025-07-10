@@ -143,6 +143,7 @@ export class AwsS3FileService {
     parentId?: string; // Do not use both `parentId` and `path` at the same time.
     path?: string; // The folder path to upload the file, e.g. 'uploads', not including `/` at the end.
     overwrite?: boolean; // Whether to overwrite the existing file
+    useOriginalName?: boolean; // Whether to use the original file name, default is false
   }) {
     // [step 1] Generate s3Key.
     let s3Key: string | undefined = undefined;
@@ -161,14 +162,26 @@ export class AwsS3FileService {
     }
 
     if (!s3Key) {
-      if (params.parentId) {
-        s3Key =
-          (await this.getFilePathString(params.parentId)) +
-          `/${generateUuid()}${extname(params.file.originalname)}`;
-      } else if (params.path) {
-        s3Key = `${params.path}/${generateUuid()}${extname(params.file.originalname)}`;
+      if (params.useOriginalName) {
+        if (params.parentId) {
+          s3Key =
+            (await this.getFilePathString(params.parentId)) +
+            `/${params.file.originalname}`;
+        } else if (params.path) {
+          s3Key = `${params.path}/${params.file.originalname}`;
+        } else {
+          s3Key = params.file.originalname;
+        }
       } else {
-        s3Key = `${generateUuid()}${extname(params.file.originalname)}`;
+        if (params.parentId) {
+          s3Key =
+            (await this.getFilePathString(params.parentId)) +
+            `/${generateUuid()}${extname(params.file.originalname)}`;
+        } else if (params.path) {
+          s3Key = `${params.path}/${generateUuid()}${extname(params.file.originalname)}`;
+        } else {
+          s3Key = `${generateUuid()}${extname(params.file.originalname)}`;
+        }
       }
     }
 
