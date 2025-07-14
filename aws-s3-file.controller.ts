@@ -73,7 +73,7 @@ export class AwsS3FileController {
     @Body() body: UploadFileDto,
     @UploadedFile() file: Express.Multer.File
   ) {
-    await this.s3File.uploadFile({
+    return await this.s3File.uploadFile({
       file: file,
       ...body,
     });
