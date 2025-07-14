@@ -13,7 +13,7 @@ import {
 import {ApiTags, ApiBearerAuth, ApiBody} from '@nestjs/swagger';
 import {FileInterceptor} from '@nestjs/platform-express';
 import {AwsS3FileService} from './aws-s3-file.service';
-import {createFolderDto} from './aws-s3-file.dto';
+import {CreateFolderDto, UploadFileDto} from './aws-s3-file.dto';
 
 @ApiTags('AWS / S3')
 @ApiBearerAuth()
@@ -33,7 +33,7 @@ export class AwsS3FileController {
       },
     },
   })
-  async createFolder(@Body() body: createFolderDto) {
+  async createFolder(@Body() body: CreateFolderDto) {
     return await this.s3File.createFolder(body);
   }
 
@@ -52,7 +52,7 @@ export class AwsS3FileController {
     return await this.s3File.getSignedDownloadUrl(fileId);
   }
 
-  @Post('uploadFile')
+  @Post('upload')
   @ApiBody({
     description: 'Upload a file to AWS S3',
     examples: {
@@ -71,13 +71,7 @@ export class AwsS3FileController {
   })
   @UseInterceptors(FileInterceptor('file')) // Receive file
   async uploadFile(
-    @Body()
-    body: {
-      folderId?: string; // Do not use both `folderId` and `path` at the same time
-      path?: string; // The folder path to upload the file, e.g. 'uploads', not including `/` at the end.
-      overwrite?: boolean; // Default to false, do not overwrite existing files
-      useOriginalName?: boolean; // Default to false, do not use the original file name
-    },
+    @Body() body: UploadFileDto,
     @UploadedFile(
       new ParseFilePipeBuilder()
         .addFileTypeValidator({fileType: 'pdf|doc|png|jpg|jpeg'})
@@ -87,10 +81,7 @@ export class AwsS3FileController {
   ) {
     await this.s3File.uploadFile({
       file: file,
-      parentId: body.folderId,
-      path: body.path,
-      overwrite: body.overwrite,
-      useOriginalName: body.useOriginalName,
+      ...body,
     });
   }
 
