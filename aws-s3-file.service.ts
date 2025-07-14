@@ -192,7 +192,7 @@ export class AwsS3FileService {
     });
 
     // [step 3] Create a record.
-    const s3File = await this.prisma.s3File.create({
+    return await this.prisma.s3File.create({
       data: {
         name: params.file.originalname,
         type: params.file.mimetype,
@@ -202,14 +202,15 @@ export class AwsS3FileService {
         s3Response: output as object,
         parentId: params.parentId,
       },
+      select: {id: true, name: true},
     });
 
-    return {
-      url: `https://${s3File.s3Bucket}.s3.${this.region}.amazonaws.com/${s3File.s3Key}`,
-      cdnUrl: this.cdnHostname
-        ? `${this.cdnHostname}/${s3File.s3Key}`
-        : undefined,
-    };
+    // return {
+    //   url: `https://${s3File.s3Bucket}.s3.${this.region}.amazonaws.com/${s3File.s3Key}`,
+    //   cdnUrl: this.cdnHostname
+    //     ? `${this.cdnHostname}/${s3File.s3Key}`
+    //     : undefined,
+    // };
   }
 
   // Delete a file in AWS S3, then delete the record in the database.

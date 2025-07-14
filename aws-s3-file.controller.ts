@@ -4,7 +4,6 @@ import {
   Delete,
   Get,
   Param,
-  ParseFilePipeBuilder,
   Post,
   Query,
   UploadedFile,
@@ -72,12 +71,7 @@ export class AwsS3FileController {
   @UseInterceptors(FileInterceptor('file')) // Receive file
   async uploadFile(
     @Body() body: UploadFileDto,
-    @UploadedFile(
-      new ParseFilePipeBuilder()
-        .addFileTypeValidator({fileType: 'pdf|doc|png|jpg|jpeg'})
-        .build()
-    )
-    file: Express.Multer.File
+    @UploadedFile() file: Express.Multer.File
   ) {
     await this.s3File.uploadFile({
       file: file,
