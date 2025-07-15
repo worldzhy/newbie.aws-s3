@@ -143,7 +143,7 @@ export class AwsS3FileService {
     parentId?: string; // Do not use both `parentId` and `path` at the same time.
     path?: string; // The folder path to upload the file, e.g. 'uploads', not including `/` at the end.
     overwrite?: boolean; // Whether to overwrite the existing file
-    useOriginalName?: boolean; // Whether to use the original file name, default is false
+    useOriginalName?: boolean; // Whether to use the original file name, true and undefined are both true.
   }) {
     // [step 1] Generate s3Key.
     let s3Key: string | undefined = undefined;
@@ -162,7 +162,10 @@ export class AwsS3FileService {
     }
 
     if (!s3Key) {
-      if (params.useOriginalName) {
+      if (
+        params.useOriginalName === undefined ||
+        params.useOriginalName === true
+      ) {
         if (params.parentId) {
           s3Key =
             (await this.getFilePathString(params.parentId)) +
