@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   UploadedFile,
@@ -12,13 +13,50 @@ import {
 import {ApiTags, ApiBearerAuth, ApiBody} from '@nestjs/swagger';
 import {FileInterceptor} from '@nestjs/platform-express';
 import {AwsS3FileService} from './aws-s3-file.service';
-import {CreateFolderDto, UploadFileDto} from './aws-s3-file.dto';
+import {
+  CreateFileDto,
+  CreateFolderDto,
+  ListFilesDto,
+  RenameFileDto,
+  UploadFileDto,
+} from './aws-s3-file.dto';
+import {Prisma} from '@prisma/client';
+import {PrismaService} from '@framework/prisma/prisma.service';
 
 @ApiTags('AWS / S3')
 @ApiBearerAuth()
 @Controller('aws-s3/files')
 export class AwsS3FileController {
-  constructor(private readonly s3File: AwsS3FileService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly s3File: AwsS3FileService
+  ) {}
+
+  @Post('')
+  async createFile(@Body() body: CreateFileDto) {
+    return await this.s3File.createFile(body);
+  }
+
+  @Get('list')
+  async listFiles(@Query() query: ListFilesDto) {
+    return await this.prisma.findManyInManyPages({
+      model: Prisma.ModelName.S3File,
+      pagination: {page: query.page, pageSize: query.pageSize},
+      findManyArgs: {where: {parentId: query.parentId ?? null}},
+    });
+  }
+
+  @Post('upload')
+  @UseInterceptors(FileInterceptor('file')) // Receive file
+  async uploadFile(
+    @Body() body: UploadFileDto,
+    @UploadedFile() file: Express.Multer.File
+  ) {
+    return await this.s3File.uploadFile({
+      file: file,
+      ...body,
+    });
+  }
 
   @Post('folders')
   @ApiBody({
@@ -36,52 +74,30 @@ export class AwsS3FileController {
     return await this.s3File.createFolder(body);
   }
 
-  @Post('signedUploadUrl')
-  async getSignedUploadUrl(
-    @Query('file')
-    file: {originalname: string; mimetype: string; size: number},
-    @Query('parentId') parentId?: string,
-    @Query('path') path?: string
+  @Delete(':id')
+  async deleteFile(@Param('id') id: string) {
+    return await this.s3File.deleteFile(id);
+  }
+
+  @Patch(':fileId/rename')
+  async renameFile(
+    @Param('fileId') fileId: string,
+    @Body() body: RenameFileDto
   ) {
-    return await this.s3File.getSignedUploadUrl({file, parentId, path});
+    return await this.prisma.s3File.update({
+      where: {id: fileId},
+      data: {name: body.name},
+    });
+  }
+
+  @Get(':fileId/path')
+  async getFilePath(@Param('fileId') fileId: string) {
+    return await this.s3File.getFilePath(fileId);
   }
 
   @Get('signedDownloadUrl')
   async getSignedDownloadUrl(@Query('fileId') fileId: string) {
     return await this.s3File.getSignedDownloadUrl(fileId);
-  }
-
-  @Post('upload')
-  @ApiBody({
-    description: 'Upload a file to AWS S3',
-    examples: {
-      a: {
-        value: {
-          parentFolderId: '44f36b0b-2602-45d0-a2ed-b22085d1e845',
-          overwrite: false,
-        },
-      },
-      b: {
-        value: {
-          path: 'uploads',
-        },
-      },
-    },
-  })
-  @UseInterceptors(FileInterceptor('file')) // Receive file
-  async uploadFile(
-    @Body() body: UploadFileDto,
-    @UploadedFile() file: Express.Multer.File
-  ) {
-    return await this.s3File.uploadFile({
-      file: file,
-      ...body,
-    });
-  }
-
-  @Delete(':id')
-  async deleteFile(@Param('id') id: string) {
-    return await this.s3File.deleteFile(id);
   }
 
   /* End */

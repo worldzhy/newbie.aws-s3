@@ -42,47 +42,6 @@ export class AwsS3FileService {
   }
 
   /*
-   * Get a signed URL for uploading a file to AWS S3.
-   * This URL can be used by the user to upload a file directly to S3.
-   * The URL will expire after a certain period of time, which is defined in the AWS S3 configuration.
-   * https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/userguide/PresignedUrlUploadObject.html
-   */
-  async getSignedUploadUrl(params: {
-    file: {originalname: string; mimetype: string; size: number};
-    parentId?: string;
-    path?: string;
-  }) {
-    // [step 1] Generate s3Key.
-    let s3Key: string;
-    if (params.parentId) {
-      s3Key =
-        (await this.getFilePathString(params.parentId)) +
-        `/${generateUuid()}${extname(params.file.originalname)}`;
-    } else if (params.path) {
-      s3Key = `${params.path}/${generateUuid()}${extname(params.file.originalname)}`;
-    } else {
-      s3Key = `${generateUuid()}${extname(params.file.originalname)}`;
-    }
-
-    // [step 2] Create a record.
-    const file = await this.prisma.s3File.create({
-      data: {
-        name: params.file.originalname,
-        type: params.file.mimetype,
-        size: params.file.size,
-        s3Bucket: this.bucket,
-        s3Key: s3Key,
-        parentId: params.parentId,
-      },
-    });
-
-    return this.s3.getSignedUploadUrl({
-      bucket: file.s3Bucket,
-      key: file.s3Key,
-    });
-  }
-
-  /*
    * Create a folder in AWS S3, then create a record in the database.
    */
   async createFolder(params: {
@@ -136,6 +95,49 @@ export class AwsS3FileService {
   }
 
   /*
+   * Create a file record in database and return a signed URL for uploading a file to AWS S3.
+   * This URL can be used by the user to upload a file directly to S3.
+   * The URL will expire after a certain period of time, which is defined in the AWS S3 configuration.
+   * https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/userguide/PresignedUrlUploadObject.html
+   */
+  async createFile(params: {
+    originalname: string;
+    mimetype: string;
+    size: number;
+    parentId?: string;
+    path?: string;
+  }) {
+    // [step 1] Generate s3Key.
+    let s3Key: string;
+    if (params.parentId) {
+      s3Key =
+        (await this.getFilePathString(params.parentId)) +
+        `/${generateUuid()}${extname(params.originalname)}`;
+    } else if (params.path) {
+      s3Key = `${params.path}/${generateUuid()}${extname(params.originalname)}`;
+    } else {
+      s3Key = `${generateUuid()}${extname(params.originalname)}`;
+    }
+
+    // [step 2] Create a record.
+    const file = await this.prisma.s3File.create({
+      data: {
+        name: params.originalname,
+        type: params.mimetype,
+        size: params.size,
+        s3Bucket: this.bucket,
+        s3Key: s3Key,
+        parentId: params.parentId,
+      },
+    });
+
+    return this.s3.getSignedUploadUrl({
+      bucket: file.s3Bucket,
+      key: file.s3Key,
+    });
+  }
+
+  /*
    *  Upload file to local server, then upload to AWS S3.
    */
   async uploadFile(params: {
@@ -145,9 +147,6 @@ export class AwsS3FileService {
     overwrite?: boolean; // Whether to overwrite the existing file
     useOriginalName?: boolean; // Whether to use the original file name, true and undefined are both true.
   }) {
-    // [step 1] Generate s3Key.
-    let s3Key: string | undefined = undefined;
-
     if (params.overwrite) {
       const existingFile = await this.prisma.s3File.findFirst({
         where: {
@@ -155,36 +154,52 @@ export class AwsS3FileService {
           s3Bucket: this.bucket,
           parentId: params.parentId,
         },
+        select: {id: true, s3Key: true},
       });
       if (existingFile) {
-        s3Key = existingFile.s3Key;
+        // Upload to AWS S3 with the existing file's s3Key to overwrite it.
+        const output = await this.s3.putObject({
+          key: existingFile.s3Key,
+          body: params.file.buffer,
+        });
+
+        return await this.prisma.s3File.update({
+          where: {id: existingFile.id},
+          data: {
+            name: params.file.originalname,
+            type: params.file.mimetype,
+            size: params.file.size,
+            s3Response: output as object,
+          },
+          select: {id: true, name: true},
+        });
       }
     }
 
-    if (!s3Key) {
-      if (
-        params.useOriginalName === undefined ||
-        params.useOriginalName === true
-      ) {
-        if (params.parentId) {
-          s3Key =
-            (await this.getFilePathString(params.parentId)) +
-            `/${params.file.originalname}`;
-        } else if (params.path) {
-          s3Key = `${params.path}/${params.file.originalname}`;
-        } else {
-          s3Key = params.file.originalname;
-        }
+    // [step 1] Generate s3Key.
+    let s3Key: string;
+    if (
+      params.useOriginalName === undefined ||
+      params.useOriginalName === true
+    ) {
+      if (params.parentId) {
+        s3Key =
+          (await this.getFilePathString(params.parentId)) +
+          `/${params.file.originalname}`;
+      } else if (params.path) {
+        s3Key = `${params.path}/${params.file.originalname}`;
       } else {
-        if (params.parentId) {
-          s3Key =
-            (await this.getFilePathString(params.parentId)) +
-            `/${generateUuid()}${extname(params.file.originalname)}`;
-        } else if (params.path) {
-          s3Key = `${params.path}/${generateUuid()}${extname(params.file.originalname)}`;
-        } else {
-          s3Key = `${generateUuid()}${extname(params.file.originalname)}`;
-        }
+        s3Key = params.file.originalname;
+      }
+    } else {
+      if (params.parentId) {
+        s3Key =
+          (await this.getFilePathString(params.parentId)) +
+          `/${generateUuid()}${extname(params.file.originalname)}`;
+      } else if (params.path) {
+        s3Key = `${params.path}/${generateUuid()}${extname(params.file.originalname)}`;
+      } else {
+        s3Key = `${generateUuid()}${extname(params.file.originalname)}`;
       }
     }
 
