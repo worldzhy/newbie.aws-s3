@@ -26,17 +26,22 @@ export class AwsS3Service {
       'microservices.aws-s3.signedUrlExpiresIn'
     );
 
-    this.client = new S3Client({
-      region: this.region,
-      credentials: {
-        accessKeyId: this.config.getOrThrow<string>(
-          'microservices.aws-s3.accessKeyId'
-        )!,
-        secretAccessKey: this.config.getOrThrow<string>(
-          'microservices.aws-s3.secretAccessKey'
-        )!,
-      },
-    });
+    const accessKeyId = this.config.get<string>(
+      'microservices.aws-s3.accessKeyId'
+    );
+    const secretAccessKey = this.config.get<string>(
+      'microservices.aws-s3.secretAccessKey'
+    );
+    if (accessKeyId && secretAccessKey) {
+      this.client = new S3Client({
+        region: this.region,
+        credentials: {accessKeyId, secretAccessKey},
+      });
+    } else {
+      this.client = new S3Client({
+        region: this.region,
+      });
+    }
   }
 
   /** Get a signed URL to access an S3 object for signedUrlExpiresIn seconds */
