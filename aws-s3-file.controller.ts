@@ -10,7 +10,12 @@ import {
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
-import {ApiTags, ApiBearerAuth, ApiBody} from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiResponse,
+  ApiOperation,
+} from '@nestjs/swagger';
 import {FileInterceptor} from '@nestjs/platform-express';
 import {AwsS3FileService} from './aws-s3-file.service';
 import {
@@ -19,6 +24,8 @@ import {
   ListFilesDto,
   RenameFileDto,
   UploadFileDto,
+  ListFilePathsResDto,
+  ListFilesResDto,
 } from './aws-s3-file.dto';
 import {Prisma} from '@prisma/client';
 import {PrismaService} from '@framework/prisma/prisma.service';
@@ -38,6 +45,9 @@ export class AwsS3FileController {
   }
 
   @Get('list')
+  @ApiResponse({
+    type: ListFilesResDto,
+  })
   async listFiles(@Query() query: ListFilesDto) {
     return await this.prisma.findManyInManyPages({
       model: Prisma.ModelName.S3File,
@@ -59,16 +69,9 @@ export class AwsS3FileController {
   }
 
   @Post('folders')
-  @ApiBody({
+  @ApiOperation({
+    summary: 'Create a folder in AWS S3',
     description: 'Create a folder in AWS S3',
-    examples: {
-      a: {
-        value: {
-          name: 'uploads/images',
-          parentId: '44f36b0b-2602-45d0-a2ed-b22085d1e845',
-        },
-      },
-    },
   })
   async createFolder(@Body() body: CreateFolderDto) {
     return await this.s3File.createFolder(body);
@@ -91,6 +94,10 @@ export class AwsS3FileController {
   }
 
   @Get(':fileId/path')
+  @ApiResponse({
+    type: ListFilePathsResDto,
+    isArray: true,
+  })
   async getFilePath(@Param('fileId') fileId: string) {
     return await this.s3File.getFilePath(fileId);
   }

@@ -1,4 +1,7 @@
-import {CommonPaginationReqDto} from '@framework/common.dto';
+import {
+  CommonPaginationReqDto,
+  CommonPaginationResDto,
+} from '@framework/common.dto';
 import {ApiProperty} from '@nestjs/swagger';
 import {IsOptional, IsString, MinLength} from 'class-validator';
 
@@ -12,6 +15,85 @@ export class ListFilesDto extends CommonPaginationReqDto {
   @IsString()
   @IsOptional()
   parentId?: string;
+}
+
+export class ListFilesRes {
+  @ApiProperty({
+    type: String,
+    description: 'The unique identifier of the file or folder.',
+  })
+  id: string;
+
+  @ApiProperty({
+    type: String,
+    description: 'The name of the file or folder.',
+  })
+  name: string;
+
+  @ApiProperty({
+    type: String,
+    description: 'The type of the item, e.g., "Folder" or file type.',
+  })
+  type: string;
+
+  @ApiProperty({
+    type: Number,
+    required: false,
+    description: 'The size of the file in bytes, null for folders.',
+  })
+  size: number | null;
+
+  @ApiProperty({
+    type: String,
+    description: 'The S3 bucket name where the file is stored.',
+  })
+  s3Bucket: string;
+
+  @ApiProperty({
+    type: String,
+    description: 'The S3 key (path) of the file in the bucket.',
+  })
+  s3Key: string;
+
+  @ApiProperty({
+    type: Object,
+    required: false,
+    description: 'The S3 response metadata from the upload operation.',
+  })
+  s3Response: any;
+
+  @ApiProperty({
+    type: String,
+    required: false,
+    description: 'The parent folder ID, null for root level items.',
+  })
+  parentId: string | null;
+
+  @ApiProperty({
+    type: String,
+    description: 'The creation timestamp.',
+  })
+  createdAt: string;
+
+  @ApiProperty({
+    type: String,
+    description: 'The last update timestamp.',
+  })
+  updatedAt: string;
+}
+
+export class ListFilesResDto {
+  @ApiProperty({
+    type: ListFilesRes,
+    isArray: true,
+    description: 'The last update timestamp.',
+  })
+  records: ListFilesRes[];
+
+  @ApiProperty({
+    type: CommonPaginationResDto,
+  })
+  pagination: CommonPaginationResDto;
 }
 
 export class CreateFolderDto {
@@ -111,4 +193,29 @@ export class UploadFileDto {
   })
   @IsOptional()
   useOriginalName?: boolean;
+}
+
+export class ListFilePathsResDto {
+  @ApiProperty({
+    type: String,
+  })
+  @IsString()
+  id: string;
+
+  @ApiProperty({
+    type: String,
+  })
+  @IsString()
+  name: string;
+
+  @ApiProperty({
+    type: String,
+  })
+  @IsString()
+  type: string;
+  @ApiProperty({
+    type: String,
+  })
+  @IsString()
+  parentId: string;
 }
