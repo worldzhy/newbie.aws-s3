@@ -1,11 +1,11 @@
 import {
-  CommonPaginationReqDto,
-  CommonPaginationResDto,
+  CommonListRequestDto,
+  CommonListResponseDto,
 } from '@framework/common.dto';
 import {ApiProperty} from '@nestjs/swagger';
 import {IsOptional, IsString, MinLength} from 'class-validator';
 
-export class ListFilesDto extends CommonPaginationReqDto {
+export class ListFilesDto extends CommonListRequestDto {
   @ApiProperty({
     type: String,
     required: false,
@@ -91,9 +91,9 @@ export class ListFilesResDto {
   records: ListFilesRes[];
 
   @ApiProperty({
-    type: CommonPaginationResDto,
+    type: CommonListResponseDto,
   })
-  pagination: CommonPaginationResDto;
+  pagination: CommonListResponseDto;
 }
 
 export class CreateFolderDto {
