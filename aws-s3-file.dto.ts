@@ -5,7 +5,42 @@ import {
 import {ApiProperty} from '@nestjs/swagger';
 import {IsOptional, IsString, MinLength} from 'class-validator';
 
-export class ListFilesDto extends CommonListRequestDto {
+export class FileEntity {
+  @ApiProperty({type: String})
+  id: string;
+
+  @ApiProperty({type: String})
+  name: string;
+
+  @ApiProperty({type: String})
+  type: string;
+
+  @ApiProperty({
+    type: Number,
+    description: 'The size of the file in bytes, null for folders.',
+  })
+  size: number | null;
+
+  @ApiProperty({type: String})
+  s3Bucket: string;
+
+  @ApiProperty({type: String})
+  s3Key: string;
+
+  @ApiProperty({type: Object})
+  s3Response: any;
+
+  @ApiProperty({type: String})
+  parentId: string | null;
+
+  @ApiProperty({type: String})
+  createdAt: string;
+
+  @ApiProperty({type: String})
+  updatedAt: string;
+}
+
+export class ListFilesRequestDto extends CommonListRequestDto {
   @ApiProperty({
     type: String,
     required: false,
@@ -17,83 +52,13 @@ export class ListFilesDto extends CommonListRequestDto {
   parentId?: string;
 }
 
-export class ListFilesRes {
+export class ListFilesResponseDto extends CommonListResponseDto {
   @ApiProperty({
-    type: String,
-    description: 'The unique identifier of the file or folder.',
-  })
-  id: string;
-
-  @ApiProperty({
-    type: String,
-    description: 'The name of the file or folder.',
-  })
-  name: string;
-
-  @ApiProperty({
-    type: String,
-    description: 'The type of the item, e.g., "folder" or file type.',
-  })
-  type: string;
-
-  @ApiProperty({
-    type: Number,
-    required: false,
-    description: 'The size of the file in bytes, null for folders.',
-  })
-  size: number | null;
-
-  @ApiProperty({
-    type: String,
-    description: 'The S3 bucket name where the file is stored.',
-  })
-  s3Bucket: string;
-
-  @ApiProperty({
-    type: String,
-    description: 'The S3 key (path) of the file in the bucket.',
-  })
-  s3Key: string;
-
-  @ApiProperty({
-    type: Object,
-    required: false,
-    description: 'The S3 response metadata from the upload operation.',
-  })
-  s3Response: any;
-
-  @ApiProperty({
-    type: String,
-    required: false,
-    description: 'The parent folder ID, null for root level items.',
-  })
-  parentId: string | null;
-
-  @ApiProperty({
-    type: String,
-    description: 'The creation timestamp.',
-  })
-  createdAt: string;
-
-  @ApiProperty({
-    type: String,
-    description: 'The last update timestamp.',
-  })
-  updatedAt: string;
-}
-
-export class ListFilesResDto {
-  @ApiProperty({
-    type: ListFilesRes,
+    type: FileEntity,
     isArray: true,
     description: 'The last update timestamp.',
   })
-  records: ListFilesRes[];
-
-  @ApiProperty({
-    type: CommonListResponseDto,
-  })
-  pagination: CommonListResponseDto;
+  declare records: FileEntity[];
 }
 
 export class CreateFolderDto {

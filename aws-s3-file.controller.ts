@@ -21,11 +21,11 @@ import {AwsS3FileService} from './aws-s3-file.service';
 import {
   CreateFileDto,
   CreateFolderDto,
-  ListFilesDto,
   RenameFileDto,
   UploadFileDto,
   ListFilePathsResDto,
-  ListFilesResDto,
+  ListFilesRequestDto,
+  ListFilesResponseDto,
 } from './aws-s3-file.dto';
 import {Prisma} from '@prisma/client';
 import {PrismaService} from '@framework/prisma/prisma.service';
@@ -44,11 +44,11 @@ export class AwsS3FileController {
     return await this.s3File.createFile(body);
   }
 
-  @Get('list')
+  @Get('')
   @ApiResponse({
-    type: ListFilesResDto,
+    type: ListFilesResponseDto,
   })
-  async listFiles(@Query() query: ListFilesDto) {
+  async listFiles(@Query() query: ListFilesRequestDto) {
     return await this.prisma.findManyInManyPages({
       model: Prisma.ModelName.S3File,
       pagination: {page: query.page, pageSize: query.pageSize},
