@@ -32,7 +32,7 @@ export class ListFilesRes {
 
   @ApiProperty({
     type: String,
-    description: 'The type of the item, e.g., "Folder" or file type.',
+    description: 'The type of the item, e.g., "folder" or file type.',
   })
   type: string;
 

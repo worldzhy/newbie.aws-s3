@@ -79,7 +79,7 @@ export class AwsS3FileService {
       const folder = await this.prisma.s3File.create({
         data: {
           name: folderNames[i],
-          type: 'Folder',
+          type: 'folder',
           s3Bucket: this.bucket,
           s3Key: s3Key,
           s3Response: output as object,
