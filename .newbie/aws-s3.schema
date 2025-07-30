@@ -17,12 +17,13 @@ model S3File {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
+  @@unique([s3Bucket, s3Key])
   @@schema("microservice/aws-s3")
 }
 
 model S3Bucket {
   id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name      String
+  name      String   @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
