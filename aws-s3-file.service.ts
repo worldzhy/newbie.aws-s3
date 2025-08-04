@@ -24,6 +24,49 @@ export class AwsS3FileService {
   }
 
   /*
+   * Create a file record in database and return a signed URL for uploading a file to AWS S3.
+   * This URL can be used by the user to upload a file directly to S3.
+   * The URL will expire after a certain period of time, which is defined in the AWS S3 configuration.
+   * https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/userguide/PresignedUrlUploadObject.html
+   */
+  async getSignedUploadUrl(params: {
+    originalname: string;
+    mimetype: string;
+    size: number;
+    parentId?: string;
+    path?: string;
+  }) {
+    // [step 1] Generate s3Key.
+    let s3Key: string;
+    if (params.parentId) {
+      s3Key =
+        (await this.getFilePathString(params.parentId)) +
+        `/${generateUuid()}${extname(params.originalname)}`;
+    } else if (params.path) {
+      s3Key = `${params.path}/${generateUuid()}${extname(params.originalname)}`;
+    } else {
+      s3Key = `${generateUuid()}${extname(params.originalname)}`;
+    }
+
+    // [step 2] Create a record.
+    const file = await this.prisma.s3File.create({
+      data: {
+        name: params.originalname,
+        type: params.mimetype,
+        size: params.size,
+        s3Bucket: this.bucket,
+        s3Key: s3Key,
+        parentId: params.parentId,
+      },
+    });
+
+    return await this.s3.getSignedUploadUrl({
+      bucket: file.s3Bucket,
+      key: file.s3Key,
+    });
+  }
+
+  /*
    * Get a signed URL for downloading a file from AWS S3.
    * This URL can be used by the user to download the file directly from S3.
    * The URL will expire after a certain period of time, which is defined in the AWS S3 configuration.
@@ -92,49 +135,6 @@ export class AwsS3FileService {
     }
 
     return parentId; // Return the ID of the last created folder.
-  }
-
-  /*
-   * Create a file record in database and return a signed URL for uploading a file to AWS S3.
-   * This URL can be used by the user to upload a file directly to S3.
-   * The URL will expire after a certain period of time, which is defined in the AWS S3 configuration.
-   * https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/userguide/PresignedUrlUploadObject.html
-   */
-  async createFile(params: {
-    originalname: string;
-    mimetype: string;
-    size: number;
-    parentId?: string;
-    path?: string;
-  }) {
-    // [step 1] Generate s3Key.
-    let s3Key: string;
-    if (params.parentId) {
-      s3Key =
-        (await this.getFilePathString(params.parentId)) +
-        `/${generateUuid()}${extname(params.originalname)}`;
-    } else if (params.path) {
-      s3Key = `${params.path}/${generateUuid()}${extname(params.originalname)}`;
-    } else {
-      s3Key = `${generateUuid()}${extname(params.originalname)}`;
-    }
-
-    // [step 2] Create a record.
-    const file = await this.prisma.s3File.create({
-      data: {
-        name: params.originalname,
-        type: params.mimetype,
-        size: params.size,
-        s3Bucket: this.bucket,
-        s3Key: s3Key,
-        parentId: params.parentId,
-      },
-    });
-
-    return this.s3.getSignedUploadUrl({
-      bucket: file.s3Bucket,
-      key: file.s3Key,
-    });
   }
 
   /*

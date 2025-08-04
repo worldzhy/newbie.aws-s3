@@ -39,11 +39,6 @@ export class AwsS3FileController {
     private readonly s3File: AwsS3FileService
   ) {}
 
-  @Post('')
-  async createFile(@Body() body: CreateFileDto) {
-    return await this.s3File.createFile(body);
-  }
-
   @Get('')
   @ApiResponse({
     type: ListFilesResponseDto,
@@ -100,6 +95,11 @@ export class AwsS3FileController {
   })
   async getFilePath(@Param('fileId') fileId: string) {
     return await this.s3File.getFilePath(fileId);
+  }
+
+  @Post('signedUploadUrl')
+  async getSignedUploadUrl(@Body() body: CreateFileDto) {
+    return await this.s3File.getSignedUploadUrl(body);
   }
 
   @Get('signedDownloadUrl')
