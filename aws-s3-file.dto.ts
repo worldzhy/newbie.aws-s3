@@ -142,6 +142,16 @@ export class UploadFileDto {
   path?: string;
 
   @ApiProperty({
+    type: String,
+    required: false,
+    description:
+      'Base64 encoded file data. Use this when uploading file as base64 instead of multipart/form-data.',
+  })
+  @IsString()
+  @IsOptional()
+  base64?: string;
+
+  @ApiProperty({
     type: Boolean,
     required: false,
     description:

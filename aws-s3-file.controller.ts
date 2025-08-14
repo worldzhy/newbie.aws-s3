@@ -9,6 +9,7 @@ import {
   Query,
   UploadedFile,
   UseInterceptors,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -57,6 +58,47 @@ export class AwsS3FileController {
     @Body() body: UploadFileDto,
     @UploadedFile() file: Express.Multer.File
   ) {
+    if (body.base64) {
+      const {base64, ...otherBody} = body;
+      const mimeTypeMatch = base64.match(/^data:([\w\/]+);base64,/);
+      const mimetype = mimeTypeMatch ? mimeTypeMatch[1] : '';
+      if (!mimetype) {
+        throw new BadRequestException(
+          'Invalid base64 data, no mimetype found, missing data:, e.g. [data:image/png;base64,]'
+        );
+      }
+      const base64Data = base64.replace(/^data:([\w\/]+);base64,/, '');
+      const buffer = Buffer.from(base64Data, 'base64');
+
+      const crypto = require('crypto');
+      const hash = crypto
+        .createHash('md5')
+        .update(buffer)
+        .digest('hex')
+        .substring(0, 20);
+      const fileExt = mimetype.split('/')[1] || '';
+      if (!fileExt) {
+        throw new BadRequestException(
+          'Invalid base64 data, no fileExt found, missing data, e.g. [data:image/png;base64,]'
+        );
+      }
+      const originalname = `${hash}.${fileExt}`;
+
+      // create a Express.Multer.File structure
+      const base64File = {
+        buffer,
+        originalname,
+        mimetype,
+        size: buffer.length,
+        fieldname: 'base64',
+        encoding: '7bit',
+      };
+
+      return await this.s3File.uploadFile({
+        file: base64File as Express.Multer.File,
+        ...otherBody,
+      });
+    }
     return await this.s3File.uploadFile({
       file: file,
       ...body,
