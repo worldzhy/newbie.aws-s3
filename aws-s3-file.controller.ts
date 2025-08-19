@@ -97,6 +97,7 @@ export class AwsS3FileController {
       return await this.s3File.uploadFile({
         file: base64File as Express.Multer.File,
         ...otherBody,
+        useOriginalName: false,
       });
     }
     return await this.s3File.uploadFile({
