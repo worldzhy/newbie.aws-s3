@@ -227,6 +227,7 @@ class UploadPartInfo {
 
   @ApiProperty({type: Number, required: true})
   @IsNumber()
+  @Type(() => Number)
   PartNumber: number;
 }
 
@@ -243,6 +244,7 @@ export class CreateMultipartUploadResponseDto {
 
   @ApiProperty({type: Number, required: true})
   @IsNumber()
+  @Type(() => Number)
   size: number;
 
   @ApiProperty({type: String})
