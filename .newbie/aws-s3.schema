@@ -12,9 +12,9 @@ model S3File {
   size       Int? // in bytes
   s3Bucket   String
   s3Key      String // File name in S3 bucket.
-  progress   Int?     @default(0)
   s3Response Json?
   parentId   String?  @db.Uuid
+  progress   Int      @default(100) // Set to 0 when multi-part uploading starts, and 100 when completed.
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

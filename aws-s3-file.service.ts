@@ -122,7 +122,6 @@ export class AwsS3FileService {
       const folder = await this.prisma.s3File.create({
         data: {
           s3Key: s3Key,
-          progress: 100,
           type: 'folder',
           parentId: parentId,
           name: folderNames[i],
@@ -214,7 +213,6 @@ export class AwsS3FileService {
     return await this.prisma.s3File.create({
       data: {
         s3Key: s3Key,
-        progress: 100,
         s3Bucket: this.bucket,
         size: params.file.size,
         parentId: params.parentId,
@@ -355,8 +353,9 @@ export class AwsS3FileService {
           type,
           name,
           s3Key,
-          parentId,
           s3Bucket: this.bucket,
+          parentId,
+          progress: 0, // Initialize progress to 0
         },
         select: {id: true},
       });
@@ -406,8 +405,8 @@ export class AwsS3FileService {
     return await this.prisma.s3File.update({
       where: {id: fileId},
       data: {
-        progress: 100,
         s3Response: response as object,
+        progress: 100, // Set progress to 100% after completion
       },
       select: {id: true, name: true},
     });
