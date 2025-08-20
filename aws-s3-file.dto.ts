@@ -1,16 +1,16 @@
+import {ApiProperty} from '@nestjs/swagger';
 import {
   IsArray,
   IsNumber,
   IsString,
   MinLength,
   IsOptional,
-  IsObject,
 } from 'class-validator';
+import {Type} from 'class-transformer';
 import {
   CommonListRequestDto,
   CommonListResponseDto,
 } from '@framework/common.dto';
-import {ApiProperty} from '@nestjs/swagger';
 import {FileEntity} from './aws-s3-file.entity';
 
 export class ListFilesRequestDto extends CommonListRequestDto {
@@ -283,10 +283,12 @@ export class UploadPartRequestDto {
 
   @ApiProperty({type: Number, required: true})
   @IsNumber()
+  @Type(() => Number)
   uploadProgress: number;
 
   @ApiProperty({type: Number, required: true})
   @IsNumber()
+  @Type(() => Number)
   partNumber: number;
 }
 
