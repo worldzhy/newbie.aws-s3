@@ -1,34 +1,36 @@
 import {
-  Body,
-  Controller,
-  Delete,
   Get,
+  Body,
+  Post,
   Param,
   Patch,
-  Post,
   Query,
+  Delete,
+  Controller,
   UploadedFile,
   UseInterceptors,
   BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
-  ApiBearerAuth,
   ApiResponse,
   ApiOperation,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
-import {FileInterceptor} from '@nestjs/platform-express';
-import {AwsS3FileService} from './aws-s3-file.service';
 import {
-  CreateFileDto,
-  CreateFolderDto,
   RenameFileDto,
   UploadFileDto,
+  CreateFileDto,
+  CreateFolderDto,
   ListFilePathsResDto,
   ListFilesRequestDto,
   ListFilesResponseDto,
+  InitiateMultipartUploadResDto,
+  CompleteMultipartUploadResDto,
 } from './aws-s3-file.dto';
 import {Prisma} from '@prisma/client';
+import {AwsS3FileService} from './aws-s3-file.service';
+import {FileInterceptor} from '@nestjs/platform-express';
 import {PrismaService} from '@framework/prisma/prisma.service';
 
 @ApiTags('AWS / S3')
@@ -148,6 +150,96 @@ export class AwsS3FileController {
   @Get('signedDownloadUrl')
   async getSignedDownloadUrl(@Query('fileId') fileId: string) {
     return await this.s3File.getSignedDownloadUrl(fileId);
+  }
+
+  /**
+   * Multipart Upload
+   */
+  @Post('initiateMultipartUpload')
+  @ApiResponse({
+    type: InitiateMultipartUploadResDto,
+  })
+  async initiateMultipartUpload(
+    @Body()
+    body: {
+      name: string;
+      size: number;
+      type: string;
+      path?: string;
+      s3Key?: string;
+      fileId?: string;
+      parentId?: string;
+    }
+  ) {
+    return await this.s3File.initiateMultipartUpload(body);
+  }
+
+  @Post('uploadPart')
+  @UseInterceptors(
+    FileInterceptor('chunk', {
+      limits: {
+        fileSize: 6 * 1024 * 1024,
+      },
+    })
+  )
+  async uploadPart(
+    @UploadedFile() chunk: Express.Multer.File,
+    @Body()
+    body: {
+      key: string;
+      fileId: string;
+      progress: number;
+      uploadId: string;
+      partNumber: number;
+    }
+  ) {
+    return await this.s3File.uploadPart({
+      ...body,
+      body: chunk.buffer,
+    });
+  }
+
+  @Post('completeMultipartUpload')
+  @ApiResponse({
+    type: CompleteMultipartUploadResDto,
+  })
+  async completeMultipartUpload(
+    @Body()
+    body: {
+      key: string;
+      path?: string;
+      fileId: string;
+      uploadId: string;
+      parentId?: string;
+      parts: {ETag: string; PartNumber: number}[];
+    }
+  ) {
+    return await this.s3File.completeMultipartUpload(body);
+  }
+
+  @Delete(':uploadId')
+  async abortMultipartUpload(
+    @Body() body: {key: string},
+    @Param('uploadId') uploadId: string
+  ) {
+    const {key} = body;
+
+    await this.s3File.abortMultipartUpload({key, uploadId});
+    return {success: true};
+  }
+
+  @Post('createFile')
+  async createFile(
+    @Body()
+    body: {
+      name: string;
+      type: string;
+      size: number;
+      path?: string;
+      parentId?: string;
+    }
+  ) {
+    return await this.s3File.createFile(body);
   }
 
   /* End */

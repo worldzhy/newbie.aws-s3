@@ -1,9 +1,9 @@
+import {extname} from 'path';
 import {Injectable} from '@nestjs/common';
 import {ConfigService} from '@nestjs/config';
-import {PrismaService} from '@framework/prisma/prisma.service';
-import {generateUuid} from '@framework/utilities/random.util';
-import {extname} from 'path';
 import {AwsS3Service} from './aws-s3.service';
+import {generateUuid} from '@framework/utilities/random.util';
+import {PrismaService} from '@framework/prisma/prisma.service';
 
 @Injectable()
 export class AwsS3FileService {
@@ -12,9 +12,9 @@ export class AwsS3FileService {
   private cdnHostname: string | undefined;
 
   constructor(
+    private readonly s3: AwsS3Service,
     private readonly config: ConfigService,
-    private readonly prisma: PrismaService,
-    private readonly s3: AwsS3Service
+    private readonly prisma: PrismaService
   ) {
     this.bucket = this.config.getOrThrow<string>('microservices.aws-s3.bucket');
     this.region = this.config.getOrThrow<string>('microservices.aws-s3.region');
@@ -121,12 +121,13 @@ export class AwsS3FileService {
       const output = await this.s3.putObject({key: s3Key + '/'});
       const folder = await this.prisma.s3File.create({
         data: {
-          name: folderNames[i],
-          type: 'folder',
-          s3Bucket: this.bucket,
           s3Key: s3Key,
-          s3Response: output as object,
+          progress: 100,
+          type: 'folder',
           parentId: parentId,
+          name: folderNames[i],
+          s3Bucket: this.bucket,
+          s3Response: output as object,
         },
       });
 
@@ -212,13 +213,14 @@ export class AwsS3FileService {
     // [step 3] Create a record.
     return await this.prisma.s3File.create({
       data: {
-        name: params.file.originalname,
-        type: params.file.mimetype,
-        size: params.file.size,
-        s3Bucket: this.bucket,
         s3Key: s3Key,
-        s3Response: output as object,
+        progress: 100,
+        s3Bucket: this.bucket,
+        size: params.file.size,
         parentId: params.parentId,
+        type: params.file.mimetype,
+        s3Response: output as object,
+        name: params.file.originalname,
       },
       select: {id: true, name: true},
     });
@@ -306,5 +308,152 @@ export class AwsS3FileService {
     }
 
     return path;
+  }
+
+  /**
+   * Multipart Upload
+   */
+  async initiateMultipartUpload(params: {
+    size: number;
+    type: string;
+    name: string;
+    path?: string;
+    s3Key?: string;
+    fileId?: string;
+    parentId?: string;
+  }) {
+    let fileRsp, s3Key;
+    const {
+      path,
+      name,
+      size = 0,
+      parentId,
+      type = '',
+      s3Key: exsitS3Key,
+      fileId: exsitFileId,
+    } = params;
+
+    if (exsitS3Key) {
+      s3Key = exsitS3Key;
+    } else if (parentId) {
+      s3Key =
+        (await this.getFilePathString(parentId)) +
+        `/${generateUuid()}${extname(name)}`;
+    } else if (path) {
+      s3Key = `${path}/${generateUuid()}${extname(name)}`;
+    } else {
+      s3Key = `${generateUuid()}${extname(name)}`;
+    }
+    const uploadRsp = await this.s3.createMultipartUpload({
+      key: s3Key,
+      bucket: this.bucket,
+    });
+    if (!exsitFileId) {
+      fileRsp = await this.prisma.s3File.create({
+        data: {
+          size,
+          type,
+          name,
+          s3Key,
+          parentId,
+          s3Bucket: this.bucket,
+        },
+        select: {id: true},
+      });
+    }
+
+    return {
+      key: uploadRsp.Key,
+      uploadId: uploadRsp.UploadId,
+      fileId: exsitFileId || fileRsp.id,
+    };
+  }
+
+  async uploadPart(params: {
+    key: string;
+    fileId: string;
+    uploadId: string;
+    progress: number;
+    partNumber: number;
+    body: Buffer | Uint8Array | Blob | string;
+  }) {
+    const {fileId, progress, ...rest} = params;
+
+    await this.prisma.s3File.update({
+      where: {id: fileId},
+      data: {progress: Number(progress)},
+    });
+    return await this.s3.uploadPart({
+      ...rest,
+      bucket: this.bucket,
+    });
+  }
+
+  async completeMultipartUpload(params: {
+    key: string;
+    fileId: string;
+    uploadId: string;
+    parts: {ETag: string; PartNumber: number}[];
+  }) {
+    const {key, parts, fileId, uploadId} = params;
+    const response = await this.s3.completeMultipartUpload({
+      key,
+      parts,
+      uploadId,
+      bucket: this.bucket,
+    });
+
+    return await this.prisma.s3File.update({
+      where: {id: fileId},
+      data: {
+        progress: 100,
+        s3Response: response as object,
+      },
+      select: {id: true, name: true},
+    });
+  }
+
+  async abortMultipartUpload(params: {key: string; uploadId: string}) {
+    return await this.s3.abortMultipartUpload({
+      ...params,
+      bucket: this.bucket,
+    });
+  }
+
+  async createFile(params: {
+    type: string;
+    size: number;
+    name: string;
+    path?: string;
+    parentId?: string;
+  }) {
+    let s3Key: string;
+    const {name, type, size, path, parentId} = params;
+
+    if (parentId) {
+      s3Key =
+        (await this.getFilePathString(parentId)) +
+        `/${generateUuid()}${extname(name)}`;
+    } else if (path) {
+      s3Key = `${path}/${generateUuid()}${extname(name)}`;
+    } else {
+      s3Key = `${generateUuid()}${extname(name)}`;
+    }
+    const fileRsp = await this.prisma.s3File.create({
+      data: {
+        type,
+        size,
+        name,
+        s3Key,
+        s3Bucket: this.bucket,
+        parentId: params.parentId,
+      },
+      select: {id: true},
+    });
+
+    return {
+      s3Key,
+      id: fileRsp.id,
+    };
   }
 }

@@ -1,22 +1,26 @@
-import {Injectable} from '@nestjs/common';
-import {ConfigService} from '@nestjs/config';
 import {
+  S3Client,
+  GetObjectCommand,
+  PutObjectCommand,
+  UploadPartCommand,
   CreateBucketCommand,
   DeleteBucketCommand,
   DeleteObjectsCommand,
-  GetObjectCommand,
-  GetObjectCommandInput,
   ListObjectsV2Command,
-  PutObjectCommand,
-  S3Client,
+  GetObjectCommandInput,
+  AbortMultipartUploadCommand,
+  CreateMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
 } from '@aws-sdk/client-s3';
+import {Injectable} from '@nestjs/common';
+import {ConfigService} from '@nestjs/config';
 import {getSignedUrl} from '@aws-sdk/s3-request-presigner';
 
 @Injectable()
 export class AwsS3Service {
-  private client: S3Client;
   private bucket: string;
   private region: string;
+  private client: S3Client;
   private signedUrlExpiresIn: number;
 
   constructor(private readonly config: ConfigService) {
@@ -131,5 +135,94 @@ export class AwsS3Service {
       // TODO (developer) - Handle exception
       throw error;
     }
+  }
+
+  /**
+   * Multipart Upload
+   */
+  async createMultipartUpload(params: {bucket: string; key: string}) {
+    const {key, bucket} = params;
+    const command = new CreateMultipartUploadCommand({
+      Key: key,
+      Bucket: bucket,
+    });
+
+    return await this.client.send(command);
+  }
+
+  async uploadPart(params: {
+    key: string;
+    bucket: string;
+    uploadId: string;
+    partNumber: number;
+    body: Buffer | Uint8Array | Blob | string;
+  }) {
+    const {key, bucket, uploadId, partNumber, body} = params;
+    const command = new UploadPartCommand({
+      Key: key,
+      Body: body,
+      Bucket: bucket,
+      UploadId: uploadId,
+      PartNumber: partNumber,
+    });
+    const response = await this.client.send(command);
+
+    return {
+      ETag: response.ETag,
+      PartNumber: partNumber,
+    };
+  }
+
+  async generatePresignedUrlForPartUpload(params: {
+    key: string;
+    bucket: string;
+    uploadId: string;
+    partNumber: number;
+  }) {
+    const {key, bucket, uploadId, partNumber} = params;
+    const command = new UploadPartCommand({
+      Key: key,
+      Bucket: bucket,
+      UploadId: uploadId,
+      PartNumber: partNumber,
+    });
+
+    return getSignedUrl(this.client, command, {
+      expiresIn: this.signedUrlExpiresIn,
+    });
+  }
+
+  async completeMultipartUpload(params: {
+    key: string;
+    bucket: string;
+    uploadId: string;
+    parts: {ETag: string; PartNumber: number}[];
+  }) {
+    const {key, bucket, uploadId, parts} = params;
+    const command = new CompleteMultipartUploadCommand({
+      Key: key,
+      Bucket: bucket,
+      UploadId: uploadId,
+      MultipartUpload: {
+        Parts: parts,
+      },
+    });
+
+    return await this.client.send(command);
+  }
+
+  async abortMultipartUpload(params: {
+    key: string;
+    bucket: string;
+    uploadId: string;
+  }) {
+    const {key, bucket, uploadId} = params;
+    const command = new AbortMultipartUploadCommand({
+      Key: key,
+      Bucket: bucket,
+      UploadId: uploadId,
+    });
+
+    return await this.client.send(command);
   }
 }
