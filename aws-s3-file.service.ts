@@ -27,46 +27,55 @@ export class AwsS3FileService {
   //* File operations */
   //*******************/
 
-  async createFile(params: {
-    type: string;
-    size: number;
-    name: string;
-    path?: string;
-    parentId?: string;
-  }) {
-    let s3Key: string;
-    const {name, type, size, path, parentId} = params;
-
-    if (parentId) {
-      s3Key =
-        (await this.getFilePathString(parentId)) +
-        `/${generateUuid()}${extname(name)}`;
-    } else if (path) {
-      s3Key = `${path}/${generateUuid()}${extname(name)}`;
-    } else {
-      s3Key = `${generateUuid()}${extname(name)}`;
+  async syncFilesFromS3ToDatabase() {
+    // [step 1] Check if the s3File table is empty.
+    const count = await this.prisma.s3File.count();
+    if (count > 0) {
+      throw new Error(
+        'The s3File table is not empty. Please clear the table before syncing.'
+      );
     }
-    const fileRsp = await this.prisma.s3File.create({
-      data: {
-        type,
-        size,
-        name,
-        s3Key,
-        s3Bucket: this.bucket,
-        parentId: params.parentId,
-      },
-      select: {id: true},
-    });
 
-    return {
-      s3Key,
-      id: fileRsp.id,
-    };
+    // [step 2] Get all objects from S3 bucket.
+    const objects = await this.s3.getObjectsRecursively({});
+
+    // [step 3] Create records in the s3File table.
+    const files: {
+      name: string;
+      type: string;
+      size?: number;
+      s3Bucket: string;
+      s3Key: string;
+    }[] = [];
+
+    for (const {s3Key, size} of objects) {
+      let fileName = '';
+      let fileType = '';
+      let fileSize = size;
+
+      if (s3Key.endsWith('/')) {
+        fileName = s3Key.slice(0, -1).split('/').pop() || '';
+        fileType = 'folder';
+      } else {
+        fileName = s3Key.split('/').pop() || '';
+        fileType = s3Key.split('.').pop() || '';
+      }
+
+      files.push({
+        name: fileName,
+        type: fileType,
+        size: fileSize,
+        s3Bucket: this.bucket,
+        s3Key: s3Key,
+      });
+    }
+
+    await this.prisma.s3File.createMany({
+      data: files,
+    });
   }
 
-  /*
-   * Create a folder in AWS S3, then create a record in the database.
-   */
+  /** Create a folder in AWS S3, then create a record in the database. */
   async createFolder(params: {
     name: string; // The folder name, e.g. 'uploads', 'uploads/images'.
     parentId?: string; // The parent folder ID, if not provided, the folder will be created in the root directory.
@@ -117,9 +126,7 @@ export class AwsS3FileService {
     return parentId; // Return the ID of the last created folder.
   }
 
-  /*
-   *  Upload file to local server, then upload to AWS S3.
-   */
+  /**  Upload file to local server, then upload to AWS S3. */
   async uploadFile(params: {
     file: Express.Multer.File;
     parentId?: string; // Do not use both `parentId` and `path` at the same time.

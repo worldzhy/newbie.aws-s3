@@ -51,6 +51,12 @@ export class AwsS3FileController {
   //* File operations */
   //*******************/
 
+  @Get('sync')
+  @ApiOperation({summary: 'Sync files from S3 to database'})
+  async syncFiles() {
+    await this.s3File.syncFilesFromS3ToDatabase();
+  }
+
   @Get('')
   @ApiResponse({
     type: ListFilesResponseDto,
