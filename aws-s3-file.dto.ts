@@ -64,6 +64,8 @@ export class CreateFileRequestDto {
   mimetype: string;
 
   @ApiProperty({type: Number, required: true})
+  @Type(() => Number)
+  @IsNumber()
   size: number;
 
   @ApiProperty({
@@ -235,31 +237,21 @@ export class CreateMultipartUploadRequestDto extends CreateFileRequestDto {}
 
 export class CreateMultipartUploadResponseDto {
   @ApiProperty({type: String, required: true})
-  @IsString()
   name: string;
 
   @ApiProperty({type: String, required: true})
-  @IsString()
   type: string;
 
   @ApiProperty({type: Number, required: true})
-  @IsNumber()
-  @Type(() => Number)
   size: number;
 
   @ApiProperty({type: String})
-  @IsString()
-  @IsOptional()
   fileId: string;
 
   @ApiProperty({type: String})
-  @IsString()
-  @IsOptional()
   path: string;
 
   @ApiProperty({type: String})
-  @IsString()
-  @IsOptional()
   parentId: string;
 }
 
