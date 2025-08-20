@@ -40,7 +40,7 @@ export class AwsS3FileService {
     const objects = await this.s3.getObjectsRecursively({});
 
     // [step 3] Create records in the s3File table.
-    const files: {
+    const createManyInputs: {
       name: string;
       type: string;
       size?: number;
@@ -61,7 +61,7 @@ export class AwsS3FileService {
         fileType = s3Key.split('.').pop() || '';
       }
 
-      files.push({
+      createManyInputs.push({
         name: fileName,
         type: fileType,
         size: fileSize,
@@ -70,9 +70,32 @@ export class AwsS3FileService {
       });
     }
 
-    await this.prisma.s3File.createMany({
-      data: files,
+    const files = await this.prisma.s3File.createManyAndReturn({
+      data: createManyInputs,
+      select: {id: true, s3Key: true},
     });
+
+    // [step 4] Link parent-child relationships.
+    const fileMap = new Map(files.map(file => [file.s3Key, file.id]));
+
+    for (const {id, s3Key} of files) {
+      let parts: string[];
+      if (s3Key.endsWith('/')) {
+        parts = s3Key.slice(0, -1).split('/');
+      } else {
+        parts = s3Key.split('/');
+      }
+      if (parts.length > 1) {
+        const parentKey = parts.slice(0, -1).join('/') + '/';
+        const parentId = fileMap.get(parentKey);
+        if (parentId) {
+          await this.prisma.s3File.update({
+            where: {id: id},
+            data: {parentId: parentId},
+          });
+        }
+      }
+    }
   }
 
   /** Create a folder in AWS S3, then create a record in the database. */
