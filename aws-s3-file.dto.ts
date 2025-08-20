@@ -194,3 +194,108 @@ export class ListFilePathsResDto {
   @IsString()
   parentId: string;
 }
+
+
+export class InitiateMultipartUploadResDto {
+  @ApiProperty({
+    type: String,
+    required: true,
+  })
+  @IsString()
+  name: string;
+
+  @ApiProperty({
+    type: String,
+    required: true,
+  })
+  @IsString()
+  type: string;
+
+  @ApiProperty({
+    type: Number,
+    required: true,
+  })
+  @IsNumber()
+  size: string;
+
+  @ApiProperty({
+    type: String,
+  })
+  @IsString()
+  @IsOptional()
+  fileId: string;
+
+  @ApiProperty({
+    type: String,
+  })
+  @IsString()
+  @IsOptional()
+  path: string;
+
+  @ApiProperty({
+    type: String,
+  })
+  @IsString()
+  @IsOptional()
+  parentId: string;
+}
+
+class UploadPartsDto {
+  @ApiProperty({
+    type: String,
+    required: true,
+  })
+  @IsString()
+  ETag: string;
+
+  @ApiProperty({
+    type: Number,
+    required: true,
+  })
+  @IsNumber()
+  PartNumber: number;
+}
+
+export class CompleteMultipartUploadResDto {
+  @ApiProperty({
+    type: String,
+    required: true,
+  })
+  @IsString()
+  key: string;
+
+  @ApiProperty({
+    type: String,
+    required: true,
+  })
+  @IsString()
+  fileId: string;
+
+  @ApiProperty({
+    type: String,
+    required: true,
+  })
+  @IsString()
+  uploadId: string;
+
+  @ApiProperty({
+    type: UploadPartsDto,
+    required: true,
+  })
+  @IsArray()
+  parts: UploadPartsDto[];
+
+  @ApiProperty({
+    type: String,
+  })
+  @IsString()
+  @IsOptional()
+  path: string;
+
+  @ApiProperty({
+    type: String,
+  })
+  @IsString()
+  @IsOptional()
+  parentId: string;
+}
