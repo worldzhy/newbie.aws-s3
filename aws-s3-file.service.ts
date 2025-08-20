@@ -301,7 +301,7 @@ export class AwsS3FileService {
 
     await this.prisma.s3File.update({
       where: {id: file.id},
-      data: {uploadProgress: Number(params.uploadProgress)},
+      data: {uploadProgress: params.uploadProgress},
     });
 
     return await this.s3.uploadPart({
