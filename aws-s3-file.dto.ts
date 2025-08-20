@@ -1,9 +1,15 @@
 import {
+  IsArray,
+  IsNumber,
+  IsString,
+  MinLength,
+  IsOptional,
+} from 'class-validator';
+import {
   CommonListRequestDto,
   CommonListResponseDto,
 } from '@framework/common.dto';
 import {ApiProperty} from '@nestjs/swagger';
-import {IsOptional, IsString, MinLength} from 'class-validator';
 
 export class FileEntity {
   @ApiProperty({type: String})
@@ -194,7 +200,6 @@ export class ListFilePathsResDto {
   @IsString()
   parentId: string;
 }
-
 
 export class InitiateMultipartUploadResDto {
   @ApiProperty({
