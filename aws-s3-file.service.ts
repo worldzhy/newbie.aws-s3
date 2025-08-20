@@ -1,9 +1,9 @@
-import {extname} from 'path';
 import {Injectable} from '@nestjs/common';
 import {ConfigService} from '@nestjs/config';
-import {AwsS3Service} from './aws-s3.service';
-import {generateUuid} from '@framework/utilities/random.util';
 import {PrismaService} from '@framework/prisma/prisma.service';
+import {generateUuid} from '@framework/utilities/random.util';
+import {extname} from 'path';
+import {AwsS3Service} from './aws-s3.service';
 
 @Injectable()
 export class AwsS3FileService {
@@ -12,9 +12,9 @@ export class AwsS3FileService {
   private cdnHostname: string | undefined;
 
   constructor(
-    private readonly s3: AwsS3Service,
     private readonly config: ConfigService,
-    private readonly prisma: PrismaService
+    private readonly prisma: PrismaService,
+    private readonly s3: AwsS3Service
   ) {
     this.bucket = this.config.getOrThrow<string>('microservices.aws-s3.bucket');
     this.region = this.config.getOrThrow<string>('microservices.aws-s3.region');
@@ -23,65 +23,45 @@ export class AwsS3FileService {
     );
   }
 
-  /*
-   * Create a file record in database and return a signed URL for uploading a file to AWS S3.
-   * This URL can be used by the user to upload a file directly to S3.
-   * The URL will expire after a certain period of time, which is defined in the AWS S3 configuration.
-   * https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/userguide/PresignedUrlUploadObject.html
-   */
-  async getSignedUploadUrl(params: {
-    originalname: string;
-    mimetype: string;
-    size: number;
-    parentId?: string;
-    path?: string;
-  }) {
-    // [step 1] Generate s3Key.
-    let s3Key: string;
-    if (params.parentId) {
-      s3Key =
-        (await this.getFilePathString(params.parentId)) +
-        `/${generateUuid()}${extname(params.originalname)}`;
-    } else if (params.path) {
-      s3Key = `${params.path}/${generateUuid()}${extname(params.originalname)}`;
-    } else {
-      s3Key = `${generateUuid()}${extname(params.originalname)}`;
-    }
+  //*******************/
+  //* File operations */
+  //*******************/
 
-    // [step 2] Create a record.
-    const file = await this.prisma.s3File.create({
+  async createFile(params: {
+    type: string;
+    size: number;
+    name: string;
+    path?: string;
+    parentId?: string;
+  }) {
+    let s3Key: string;
+    const {name, type, size, path, parentId} = params;
+
+    if (parentId) {
+      s3Key =
+        (await this.getFilePathString(parentId)) +
+        `/${generateUuid()}${extname(name)}`;
+    } else if (path) {
+      s3Key = `${path}/${generateUuid()}${extname(name)}`;
+    } else {
+      s3Key = `${generateUuid()}${extname(name)}`;
+    }
+    const fileRsp = await this.prisma.s3File.create({
       data: {
-        name: params.originalname,
-        type: params.mimetype,
-        size: params.size,
+        type,
+        size,
+        name,
+        s3Key,
         s3Bucket: this.bucket,
-        s3Key: s3Key,
         parentId: params.parentId,
       },
+      select: {id: true},
     });
 
-    return await this.s3.getSignedUploadUrl({
-      bucket: file.s3Bucket,
-      key: file.s3Key,
-    });
-  }
-
-  /*
-   * Get a signed URL for downloading a file from AWS S3.
-   * This URL can be used by the user to download the file directly from S3.
-   * The URL will expire after a certain period of time, which is defined in the AWS S3 configuration.
-   * https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/userguide/ShareObjectPreSignedURL.html
-   */
-  async getSignedDownloadUrl(fileId: string) {
-    const file = await this.prisma.s3File.findFirstOrThrow({
-      where: {id: fileId},
-      select: {s3Bucket: true, s3Key: true},
-    });
-
-    return this.s3.getSignedDownloadUrl({
-      bucket: file.s3Bucket,
-      key: file.s3Key,
-    });
+    return {
+      s3Key,
+      id: fileRsp.id,
+    };
   }
 
   /*
@@ -121,12 +101,12 @@ export class AwsS3FileService {
       const output = await this.s3.putObject({key: s3Key + '/'});
       const folder = await this.prisma.s3File.create({
         data: {
-          s3Key: s3Key,
-          type: 'folder',
-          parentId: parentId,
           name: folderNames[i],
+          type: 'folder',
           s3Bucket: this.bucket,
+          s3Key: s3Key,
           s3Response: output as object,
+          parentId: parentId,
         },
       });
 
@@ -212,13 +192,13 @@ export class AwsS3FileService {
     // [step 3] Create a record.
     return await this.prisma.s3File.create({
       data: {
-        s3Key: s3Key,
-        s3Bucket: this.bucket,
-        size: params.file.size,
-        parentId: params.parentId,
-        type: params.file.mimetype,
-        s3Response: output as object,
         name: params.file.originalname,
+        type: params.file.mimetype,
+        size: params.file.size,
+        s3Bucket: this.bucket,
+        s3Key: s3Key,
+        s3Response: output as object,
+        parentId: params.parentId,
       },
       select: {id: true, name: true},
     });
@@ -238,11 +218,11 @@ export class AwsS3FileService {
     });
 
     try {
-      await this.s3.deleteFileInS3Recursively({
+      await this.s3.deleteObjectRecursively({
         bucket: file.s3Bucket,
         key: file.s3Key,
       });
-      await this.deleteFileInDatabaseRecursively(fileId);
+      await this.deleteFileRecursively(fileId);
     } catch (error) {
       // TODO (developer) - Handle exception
       throw error;
@@ -270,10 +250,169 @@ export class AwsS3FileService {
     return path;
   }
 
-  /**
-   * Remove directories and their contents recursively
+  //*******************************/
+  //* Multipart upload operations */
+  //*******************************/
+
+  async createMultipartUpload(params: {
+    originalname: string;
+    mimetype: string;
+    size: number;
+    parentId?: string;
+    path?: string;
+  }) {
+    // [step 1] Generate s3Key.
+    const s3Key = await this.generateS3Key({
+      originalname: params.originalname,
+      parentId: params.parentId,
+      path: params.path,
+    });
+
+    // [step 2] Create a record and initiate multipart upload.
+    const uploadRsp = await this.s3.createMultipartUpload({
+      key: s3Key,
+      bucket: this.bucket,
+    });
+
+    // [step 3] Create a record.
+    return await this.prisma.s3File.create({
+      data: {
+        name: params.originalname,
+        type: params.mimetype,
+        size: params.size,
+        s3Bucket: this.bucket,
+        s3Key: s3Key,
+        parentId: params.parentId,
+        uploadId: uploadRsp.UploadId,
+        uploadProgress: 0, // Initialize progress to 0
+      },
+    });
+  }
+
+  async uploadPart(params: {
+    uploadId: string;
+    uploadProgress: number;
+    partNumber: number;
+    body: Buffer | Uint8Array | Blob | string;
+  }) {
+    const file = await this.prisma.s3File.findFirstOrThrow({
+      where: {uploadId: params.uploadId},
+    });
+
+    await this.prisma.s3File.update({
+      where: {id: file.id},
+      data: {uploadProgress: params.uploadProgress},
+    });
+
+    return await this.s3.uploadPart({
+      bucket: file.s3Bucket,
+      key: file.s3Key,
+      ...params,
+    });
+  }
+
+  async completeMultipartUpload(params: {
+    uploadId: string;
+    parts: {ETag: string; PartNumber: number}[];
+  }) {
+    const file = await this.prisma.s3File.findFirstOrThrow({
+      where: {uploadId: params.uploadId},
+    });
+
+    const response = await this.s3.completeMultipartUpload({
+      bucket: file.s3Bucket,
+      key: file.s3Key,
+      parts: params.parts,
+      uploadId: params.uploadId,
+    });
+
+    return await this.prisma.s3File.update({
+      where: {id: file.id},
+      data: {
+        s3Response: response as object,
+        uploadProgress: 100, // Set progress to 100% after completion
+      },
+    });
+  }
+
+  async abortMultipartUpload(uploadId: string) {
+    const file = await this.prisma.s3File.findFirstOrThrow({
+      where: {uploadId},
+      select: {s3Bucket: true, s3Key: true},
+    });
+
+    return await this.s3.abortMultipartUpload({
+      bucket: file.s3Bucket,
+      key: file.s3Key,
+      uploadId,
+    });
+  }
+
+  //*****************************/
+  //* Get signed URL operations */
+  //*****************************/
+
+  /*
+   * Create a file record in database and return a signed URL for uploading a file to AWS S3.
+   * This URL can be used by the user to upload a file directly to S3.
+   * The URL will expire after a certain period of time, which is defined in the AWS S3 configuration.
+   * https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/userguide/PresignedUrlUploadObject.html
    */
-  private async deleteFileInDatabaseRecursively(fileId: string) {
+  async getSignedUploadUrl(params: {
+    originalname: string;
+    mimetype: string;
+    size: number;
+    parentId?: string;
+    path?: string;
+  }) {
+    // [step 1] Generate s3Key.
+    const s3Key = await this.generateS3Key({
+      originalname: params.originalname,
+      parentId: params.parentId,
+      path: params.path,
+    });
+
+    // [step 2] Create a record.
+    const file = await this.prisma.s3File.create({
+      data: {
+        name: params.originalname,
+        type: params.mimetype,
+        size: params.size,
+        s3Bucket: this.bucket,
+        s3Key: s3Key,
+        parentId: params.parentId,
+      },
+    });
+
+    return await this.s3.getSignedUploadUrl({
+      bucket: file.s3Bucket,
+      key: file.s3Key,
+    });
+  }
+
+  /*
+   * Get a signed URL for downloading a file from AWS S3.
+   * This URL can be used by the user to download the file directly from S3.
+   * The URL will expire after a certain period of time, which is defined in the AWS S3 configuration.
+   * https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/userguide/ShareObjectPreSignedURL.html
+   */
+  async getSignedDownloadUrl(fileId: string) {
+    const file = await this.prisma.s3File.findFirstOrThrow({
+      where: {id: fileId},
+      select: {s3Bucket: true, s3Key: true},
+    });
+
+    return this.s3.getSignedDownloadUrl({
+      bucket: file.s3Bucket,
+      key: file.s3Key,
+    });
+  }
+
+  //*********************/
+  //* Private functions */
+  //*********************/
+
+  private async deleteFileRecursively(fileId: string) {
     // [step 1] Delete file.
     await this.prisma.s3File.delete({where: {id: fileId}});
 
@@ -284,7 +423,7 @@ export class AwsS3FileService {
     });
 
     for (let i = 0; i < filesInFolder.length; i++) {
-      await this.deleteFileInDatabaseRecursively(filesInFolder[i].id);
+      await this.deleteFileRecursively(filesInFolder[i].id);
     }
   }
 
@@ -308,151 +447,23 @@ export class AwsS3FileService {
     return path;
   }
 
-  /**
-   * Multipart Upload
-   */
-  async initiateMultipartUpload(params: {
-    size: number;
-    type: string;
-    name: string;
-    path?: string;
-    s3Key?: string;
-    fileId?: string;
+  private async generateS3Key(params: {
+    originalname: string;
     parentId?: string;
-  }) {
-    let fileRsp, s3Key;
-    const {
-      path,
-      name,
-      size = 0,
-      parentId,
-      type = '',
-      s3Key: exsitS3Key,
-      fileId: exsitFileId,
-    } = params;
-
-    if (exsitS3Key) {
-      s3Key = exsitS3Key;
-    } else if (parentId) {
-      s3Key =
-        (await this.getFilePathString(parentId)) +
-        `/${generateUuid()}${extname(name)}`;
-    } else if (path) {
-      s3Key = `${path}/${generateUuid()}${extname(name)}`;
-    } else {
-      s3Key = `${generateUuid()}${extname(name)}`;
-    }
-    const uploadRsp = await this.s3.createMultipartUpload({
-      key: s3Key,
-      bucket: this.bucket,
-    });
-    if (!exsitFileId) {
-      fileRsp = await this.prisma.s3File.create({
-        data: {
-          size,
-          type,
-          name,
-          s3Key,
-          s3Bucket: this.bucket,
-          parentId,
-          progress: 0, // Initialize progress to 0
-        },
-        select: {id: true},
-      });
-    }
-
-    return {
-      key: uploadRsp.Key,
-      uploadId: uploadRsp.UploadId,
-      fileId: exsitFileId || fileRsp.id,
-    };
-  }
-
-  async uploadPart(params: {
-    key: string;
-    fileId: string;
-    uploadId: string;
-    progress: number;
-    partNumber: number;
-    body: Buffer | Uint8Array | Blob | string;
-  }) {
-    const {fileId, progress, ...rest} = params;
-
-    await this.prisma.s3File.update({
-      where: {id: fileId},
-      data: {progress: Number(progress)},
-    });
-    return await this.s3.uploadPart({
-      ...rest,
-      bucket: this.bucket,
-    });
-  }
-
-  async completeMultipartUpload(params: {
-    key: string;
-    fileId: string;
-    uploadId: string;
-    parts: {ETag: string; PartNumber: number}[];
-  }) {
-    const {key, parts, fileId, uploadId} = params;
-    const response = await this.s3.completeMultipartUpload({
-      key,
-      parts,
-      uploadId,
-      bucket: this.bucket,
-    });
-
-    return await this.prisma.s3File.update({
-      where: {id: fileId},
-      data: {
-        s3Response: response as object,
-        progress: 100, // Set progress to 100% after completion
-      },
-      select: {id: true, name: true},
-    });
-  }
-
-  async abortMultipartUpload(params: {key: string; uploadId: string}) {
-    return await this.s3.abortMultipartUpload({
-      ...params,
-      bucket: this.bucket,
-    });
-  }
-
-  async createFile(params: {
-    type: string;
-    size: number;
-    name: string;
     path?: string;
-    parentId?: string;
   }) {
     let s3Key: string;
-    const {name, type, size, path, parentId} = params;
 
-    if (parentId) {
+    if (params.parentId) {
       s3Key =
-        (await this.getFilePathString(parentId)) +
-        `/${generateUuid()}${extname(name)}`;
-    } else if (path) {
-      s3Key = `${path}/${generateUuid()}${extname(name)}`;
+        (await this.getFilePathString(params.parentId)) +
+        `/${generateUuid()}${extname(params.originalname)}`;
+    } else if (params.path) {
+      s3Key = `${params.path}/${generateUuid()}${extname(params.originalname)}`;
     } else {
-      s3Key = `${generateUuid()}${extname(name)}`;
+      s3Key = `${generateUuid()}${extname(params.originalname)}`;
     }
-    const fileRsp = await this.prisma.s3File.create({
-      data: {
-        type,
-        size,
-        name,
-        s3Key,
-        s3Bucket: this.bucket,
-        parentId: params.parentId,
-      },
-      select: {id: true},
-    });
 
-    return {
-      s3Key,
-      id: fileRsp.id,
-    };
+    return s3Key;
   }
 }

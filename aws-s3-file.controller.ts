@@ -18,15 +18,20 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import {
-  RenameFileDto,
-  UploadFileDto,
-  CreateFileDto,
-  CreateFolderDto,
+  CreateFileRequestDto,
+  CreateFolderRequestDto,
   ListFilePathsResDto,
   ListFilesRequestDto,
   ListFilesResponseDto,
-  InitiateMultipartUploadResDto,
-  CompleteMultipartUploadResDto,
+  RenameFileRequestDto,
+  UploadBase64RequestDto,
+  UploadFileRequestDto,
+  CreateMultipartUploadResponseDto,
+  CreateMultipartUploadRequestDto,
+  UploadPartRequestDto,
+  UploadPartResponseDto,
+  CompleteMultipartUploadRequestDto,
+  AbortMultipartUploadRequestDto,
 } from './aws-s3-file.dto';
 import {Prisma} from '@prisma/client';
 import {AwsS3FileService} from './aws-s3-file.service';
@@ -42,6 +47,10 @@ export class AwsS3FileController {
     private readonly s3File: AwsS3FileService
   ) {}
 
+  //*******************/
+  //* File operations */
+  //*******************/
+
   @Get('')
   @ApiResponse({
     type: ListFilesResponseDto,
@@ -54,66 +63,12 @@ export class AwsS3FileController {
     });
   }
 
-  @Post('upload')
-  @UseInterceptors(FileInterceptor('file')) // Receive file
-  async uploadFile(
-    @Body() body: UploadFileDto,
-    @UploadedFile() file: Express.Multer.File
-  ) {
-    if (body.base64) {
-      const {base64, ...otherBody} = body;
-      const mimeTypeMatch = base64.match(/^data:([\w\/]+);base64,/);
-      const mimetype = mimeTypeMatch ? mimeTypeMatch[1] : '';
-      if (!mimetype) {
-        throw new BadRequestException(
-          'Invalid base64 data, no mimetype found, missing data:, e.g. [data:image/png;base64,]'
-        );
-      }
-      const base64Data = base64.replace(/^data:([\w\/]+);base64,/, '');
-      const buffer = Buffer.from(base64Data, 'base64');
-
-      const crypto = require('crypto');
-      const hash = crypto
-        .createHash('md5')
-        .update(buffer)
-        .digest('hex')
-        .substring(0, 20);
-      const fileExt = mimetype.split('/')[1] || '';
-      if (!fileExt) {
-        throw new BadRequestException(
-          'Invalid base64 data, no fileExt found, missing data, e.g. [data:image/png;base64,]'
-        );
-      }
-      const originalname = `${hash}.${fileExt}`;
-
-      // create a Express.Multer.File structure
-      const base64File = {
-        buffer,
-        originalname,
-        mimetype,
-        size: buffer.length,
-        fieldname: 'base64',
-        encoding: '7bit',
-      };
-
-      return await this.s3File.uploadFile({
-        file: base64File as Express.Multer.File,
-        ...otherBody,
-        useOriginalName: false,
-      });
-    }
-    return await this.s3File.uploadFile({
-      file: file,
-      ...body,
-    });
-  }
-
   @Post('folders')
   @ApiOperation({
     summary: 'Create a folder in AWS S3',
     description: 'Create a folder in AWS S3',
   })
-  async createFolder(@Body() body: CreateFolderDto) {
+  async createFolder(@Body() body: CreateFolderRequestDto) {
     return await this.s3File.createFolder(body);
   }
 
@@ -125,7 +80,7 @@ export class AwsS3FileController {
   @Patch(':fileId/rename')
   async renameFile(
     @Param('fileId') fileId: string,
-    @Body() body: RenameFileDto
+    @Body() body: RenameFileRequestDto
   ) {
     return await this.prisma.s3File.update({
       where: {id: fileId},
@@ -143,7 +98,7 @@ export class AwsS3FileController {
   }
 
   @Post('signedUploadUrl')
-  async getSignedUploadUrl(@Body() body: CreateFileDto) {
+  async getSignedUploadUrl(@Body() body: CreateFileRequestDto) {
     return await this.s3File.getSignedUploadUrl(body);
   }
 
@@ -152,94 +107,83 @@ export class AwsS3FileController {
     return await this.s3File.getSignedDownloadUrl(fileId);
   }
 
-  /**
-   * Multipart Upload
-   */
-  @Post('initiateMultipartUpload')
-  @ApiResponse({
-    type: InitiateMultipartUploadResDto,
-  })
-  async initiateMultipartUpload(
-    @Body()
-    body: {
-      name: string;
-      size: number;
-      type: string;
-      path?: string;
-      s3Key?: string;
-      fileId?: string;
-      parentId?: string;
-    }
-  ) {
-    return await this.s3File.initiateMultipartUpload(body);
-  }
+  //*********************/
+  //* Upload operations */
+  //*********************/
 
-  @Post('uploadPart')
-  @UseInterceptors(
-    FileInterceptor('chunk', {
-      limits: {
-        fileSize: 6 * 1024 * 1024,
-      },
-    })
-  )
-  async uploadPart(
-    @UploadedFile() chunk: Express.Multer.File,
-    @Body()
-    body: {
-      key: string;
-      fileId: string;
-      progress: number;
-      uploadId: string;
-      partNumber: number;
-    }
+  @Post('upload')
+  @UseInterceptors(FileInterceptor('file')) // Receive file
+  async uploadFile(
+    @Body() body: UploadFileRequestDto,
+    @UploadedFile() file: Express.Multer.File
   ) {
-    return await this.s3File.uploadPart({
+    return await this.s3File.uploadFile({
+      file: file,
       ...body,
-      body: chunk.buffer,
     });
   }
 
-  @Post('completeMultipartUpload')
-  @ApiResponse({
-    type: CompleteMultipartUploadResDto,
-  })
-  async completeMultipartUpload(
-    @Body()
-    body: {
-      key: string;
-      path?: string;
-      fileId: string;
-      uploadId: string;
-      parentId?: string;
-      parts: {ETag: string; PartNumber: number}[];
+  @Post('upload-base64')
+  async uploadBase64(@Body() body: UploadBase64RequestDto) {
+    const {base64, originalname, ...others} = body;
+    const mimetypeMatch = base64.match(/^data:([\w\/]+);base64,/);
+    const mimetype = mimetypeMatch ? mimetypeMatch[1] : '';
+    if (!mimetype) {
+      throw new BadRequestException(
+        'Invalid base64 data, no mimetype found, missing data:, e.g. [data:image/png;base64,]'
+      );
     }
+    const base64Data = base64.replace(/^data:([\w\/]+);base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    // create a Express.Multer.File structure
+    const base64File = {
+      fieldname: 'base64',
+      originalname,
+      encoding: '7bit',
+      mimetype,
+      size: buffer.length,
+      buffer,
+    };
+
+    return await this.s3File.uploadFile({
+      file: base64File as Express.Multer.File,
+      ...others,
+    });
+  }
+
+  //*******************************/
+  //* Multipart upload operations */
+  //*******************************/
+
+  @Post('create-multipart')
+  @ApiResponse({type: CreateMultipartUploadResponseDto})
+  async createMultipartUpload(@Body() body: CreateMultipartUploadRequestDto) {
+    return await this.s3File.createMultipartUpload(body);
+  }
+
+  @Post('upload-part')
+  @ApiResponse({type: UploadPartResponseDto})
+  @UseInterceptors(
+    FileInterceptor('chunk', {limits: {fileSize: 6 * 1024 * 1024}})
+  )
+  async uploadPart(
+    @Body() body: UploadPartRequestDto,
+    @UploadedFile() chunk: Express.Multer.File
+  ) {
+    return await this.s3File.uploadPart({body: chunk.buffer, ...body});
+  }
+
+  @Post('complete-multipart')
+  async completeMultipartUpload(
+    @Body() body: CompleteMultipartUploadRequestDto
   ) {
     return await this.s3File.completeMultipartUpload(body);
   }
 
-  @Delete(':uploadId')
-  async abortMultipartUpload(
-    @Body() body: {key: string},
-    @Param('uploadId') uploadId: string
-  ) {
-    const {key} = body;
-
-    await this.s3File.abortMultipartUpload({key, uploadId});
-    return {success: true};
-  }
-
-  @Post('createFile')
-  async createFile(
-    @Body()
-    body: {
-      name: string;
-      type: string;
-      size: number;
-      path?: string;
-      parentId?: string;
-    }
-  ) {
-    return await this.s3File.createFile(body);
+  @Post('abort-multipart')
+  async abortMultipartUpload(@Body() body: AbortMultipartUploadRequestDto) {
+    return await this.s3File.abortMultipartUpload(body.uploadId);
   }
 
   /* End */
