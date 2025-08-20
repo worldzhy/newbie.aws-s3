@@ -4,47 +4,14 @@ import {
   IsString,
   MinLength,
   IsOptional,
+  IsObject,
 } from 'class-validator';
 import {
   CommonListRequestDto,
   CommonListResponseDto,
 } from '@framework/common.dto';
 import {ApiProperty} from '@nestjs/swagger';
-
-export class FileEntity {
-  @ApiProperty({type: String})
-  id: string;
-
-  @ApiProperty({type: String})
-  name: string;
-
-  @ApiProperty({type: String})
-  type: string;
-
-  @ApiProperty({
-    type: Number,
-    description: 'The size of the file in bytes, null for folders.',
-  })
-  size: number | null;
-
-  @ApiProperty({type: String})
-  s3Bucket: string;
-
-  @ApiProperty({type: String})
-  s3Key: string;
-
-  @ApiProperty({type: Object})
-  s3Response: any;
-
-  @ApiProperty({type: String})
-  parentId: string | null;
-
-  @ApiProperty({type: String})
-  createdAt: string;
-
-  @ApiProperty({type: String})
-  updatedAt: string;
-}
+import {FileEntity} from './aws-s3-file.entity';
 
 export class ListFilesRequestDto extends CommonListRequestDto {
   @ApiProperty({
@@ -67,7 +34,7 @@ export class ListFilesResponseDto extends CommonListResponseDto {
   declare records: FileEntity[];
 }
 
-export class CreateFolderDto {
+export class CreateFolderRequestDto {
   @ApiProperty({
     type: String,
     required: true,
@@ -87,7 +54,7 @@ export class CreateFolderDto {
   parentId?: string;
 }
 
-export class CreateFileDto {
+export class CreateFileRequestDto {
   @ApiProperty({type: String, required: true})
   @IsString()
   originalname: string;
@@ -120,60 +87,10 @@ export class CreateFileDto {
   path?: string;
 }
 
-export class RenameFileDto {
+export class RenameFileRequestDto {
   @ApiProperty({type: String, required: true})
   @IsString()
   name: string;
-}
-
-export class UploadFileDto {
-  @ApiProperty({
-    type: String,
-    required: false,
-    description:
-      'The parent folder ID to upload the file to, do not use both `parentId` and `path` at the same time.',
-  })
-  @IsString()
-  @IsOptional()
-  parentId?: string;
-
-  @ApiProperty({
-    type: String,
-    required: false,
-    description:
-      'The folder path to upload the file, e.g. "uploads", not including "/" at the end.',
-  })
-  @IsString()
-  @IsOptional()
-  path?: string;
-
-  @ApiProperty({
-    type: String,
-    required: false,
-    description:
-      'Base64 encoded file data. Use this when uploading file as base64 instead of multipart/form-data.',
-  })
-  @IsString()
-  @IsOptional()
-  base64?: string;
-
-  @ApiProperty({
-    type: Boolean,
-    required: false,
-    description:
-      'Whether to overwrite the file if it already exists. Do not overwrite the existing file if not specified.',
-  })
-  @IsOptional()
-  overwrite?: boolean;
-
-  @ApiProperty({
-    type: Boolean,
-    required: false,
-    description:
-      'Whether to use the original file name when uploading. Use original name if not specified.',
-  })
-  @IsOptional()
-  useOriginalName?: boolean;
 }
 
 export class ListFilePathsResDto {
@@ -201,7 +118,121 @@ export class ListFilePathsResDto {
   parentId: string;
 }
 
-export class InitiateMultipartUploadResDto {
+//***************/
+//* Upload DTOs */
+//***************/
+
+export class UploadFileRequestDto {
+  @ApiProperty({
+    type: String,
+    required: false,
+    description:
+      'The parent folder ID to upload the file to, do not use both `parentId` and `path` at the same time.',
+  })
+  @IsString()
+  @IsOptional()
+  parentId?: string;
+
+  @ApiProperty({
+    type: String,
+    required: false,
+    description:
+      'The folder path to upload the file, e.g. "uploads", not including "/" at the end.',
+  })
+  @IsString()
+  @IsOptional()
+  path?: string;
+
+  @ApiProperty({
+    type: Boolean,
+    required: false,
+    description:
+      'Whether to overwrite the file if it already exists. Do not overwrite the existing file if not specified.',
+  })
+  @IsOptional()
+  overwrite?: boolean;
+
+  @ApiProperty({
+    type: Boolean,
+    required: false,
+    description:
+      'Whether to use the original file name when uploading. Use original name if not specified.',
+  })
+  @IsOptional()
+  useOriginalName?: boolean;
+}
+
+export class UploadBase64RequestDto {
+  @ApiProperty({
+    type: String,
+    required: false,
+    description:
+      'The parent folder ID to upload the file to, do not use both `parentId` and `path` at the same time.',
+  })
+  @IsString()
+  @IsOptional()
+  parentId?: string;
+
+  @ApiProperty({
+    type: String,
+    required: false,
+    description:
+      'The folder path to upload the file, e.g. "uploads", not including "/" at the end.',
+  })
+  @IsString()
+  @IsOptional()
+  path?: string;
+
+  @ApiProperty({
+    type: String,
+    required: true,
+    description: 'Base64 encoded file data.',
+  })
+  @IsString()
+  base64: string;
+
+  @ApiProperty({
+    type: String,
+    required: true,
+  })
+  @IsString()
+  originalname: string;
+
+  @ApiProperty({
+    type: Boolean,
+    required: false,
+    description:
+      'Whether to overwrite the file if it already exists. Do not overwrite the existing file if not specified.',
+  })
+  @IsOptional()
+  overwrite?: boolean;
+
+  @ApiProperty({
+    type: Boolean,
+    required: false,
+    description:
+      'Whether to use the original file name when uploading. Use original name if not specified.',
+  })
+  @IsOptional()
+  useOriginalName?: boolean;
+}
+
+//*************************/
+//* Multipart upload DTOs */
+//*************************/
+class UploadPartInfo {
+  @ApiProperty({type: String, required: true})
+  @IsString()
+  ETag: string;
+
+  @ApiProperty({type: Number, required: true})
+  @IsNumber()
+  PartNumber: number;
+}
+
+export class CreateMultipartUploadRequestDto extends CreateFileRequestDto {}
+
+export class CreateMultipartUploadResponseDto {
   @ApiProperty({
     type: String,
     required: true,
@@ -245,62 +276,45 @@ export class InitiateMultipartUploadResDto {
   parentId: string;
 }
 
-class UploadPartsDto {
-  @ApiProperty({
-    type: String,
-    required: true,
-  })
+export class UploadPartRequestDto {
+  @ApiProperty({type: String, required: true})
+  @IsString()
+  uploadId: string;
+
+  @ApiProperty({type: Number, required: true})
+  @IsNumber()
+  uploadProgress: number;
+
+  @ApiProperty({type: Number, required: true})
+  @IsNumber()
+  partNumber: number;
+}
+
+export class UploadPartResponseDto {
+  @ApiProperty({type: String})
   @IsString()
   ETag: string;
 
-  @ApiProperty({
-    type: Number,
-    required: true,
-  })
+  @ApiProperty({type: Number})
   @IsNumber()
   PartNumber: number;
 }
 
-export class CompleteMultipartUploadResDto {
-  @ApiProperty({
-    type: String,
-    required: true,
-  })
-  @IsString()
-  key: string;
-
-  @ApiProperty({
-    type: String,
-    required: true,
-  })
-  @IsString()
-  fileId: string;
-
-  @ApiProperty({
-    type: String,
-    required: true,
-  })
+export class CompleteMultipartUploadRequestDto {
+  @ApiProperty({type: String, required: true})
   @IsString()
   uploadId: string;
 
   @ApiProperty({
-    type: UploadPartsDto,
+    type: UploadPartInfo,
     required: true,
   })
   @IsArray()
-  parts: UploadPartsDto[];
+  parts: UploadPartInfo[];
+}
 
-  @ApiProperty({
-    type: String,
-  })
+export class AbortMultipartUploadRequestDto {
+  @ApiProperty({type: String, required: true})
   @IsString()
-  @IsOptional()
-  path: string;
-
-  @ApiProperty({
-    type: String,
-  })
-  @IsString()
-  @IsOptional()
-  parentId: string;
+  uploadId: string;
 }
