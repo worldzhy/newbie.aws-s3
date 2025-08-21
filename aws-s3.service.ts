@@ -68,9 +68,13 @@ export class AwsS3Service {
   //* Object operations */
   //*********************/
 
-  async getObject(params: GetObjectCommandInput) {
-    const {Bucket, Key} = params;
-    return await this.client.send(new GetObjectCommand({Bucket, Key}));
+  async getObject(params: {bucket?: string; key: string}) {
+    return await this.client.send(
+      new GetObjectCommand({
+        Bucket: params.bucket ?? this.bucket,
+        Key: params.key,
+      })
+    );
   }
 
   async putObject(params: {

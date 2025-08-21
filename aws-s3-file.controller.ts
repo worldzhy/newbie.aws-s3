@@ -78,9 +78,13 @@ export class AwsS3FileController {
     return await this.s3File.createFolder(body);
   }
 
-  @Delete(':id')
-  async deleteFile(@Param('id') id: string) {
-    return await this.s3File.deleteFile(id);
+  @Get(':fileId/path')
+  @ApiResponse({
+    type: ListFilePathsResDto,
+    isArray: true,
+  })
+  async getFilePath(@Param('fileId') fileId: string) {
+    return await this.s3File.getFilePath(fileId);
   }
 
   @Patch(':fileId/rename')
@@ -94,13 +98,9 @@ export class AwsS3FileController {
     });
   }
 
-  @Get(':fileId/path')
-  @ApiResponse({
-    type: ListFilePathsResDto,
-    isArray: true,
-  })
-  async getFilePath(@Param('fileId') fileId: string) {
-    return await this.s3File.getFilePath(fileId);
+  @Delete(':id')
+  async deleteFile(@Param('id') id: string) {
+    return await this.s3File.deleteFile(id);
   }
 
   @Post('signedUploadUrl')

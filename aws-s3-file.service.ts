@@ -151,7 +151,12 @@ export class AwsS3FileService {
 
   /**  Upload file to local server, then upload to AWS S3. */
   async uploadFile(params: {
-    file: Express.Multer.File;
+    file: {
+      originalname: string;
+      mimetype: string;
+      size: number;
+      buffer: Buffer;
+    };
     parentId?: string; // Do not use both `parentId` and `path` at the same time.
     path?: string; // The folder path to upload the file, e.g. 'uploads', not including `/` at the end.
     overwrite?: boolean; // Whether to overwrite the existing file
@@ -241,22 +246,17 @@ export class AwsS3FileService {
     // };
   }
 
-  // Delete a file in AWS S3, then delete the record in the database.
-  async deleteFile(fileId: string) {
+  // Get the file body by ID.
+  async getFileBody(fileId: string) {
     const file = await this.prisma.s3File.findFirstOrThrow({
       where: {id: fileId},
+      select: {s3Bucket: true, s3Key: true},
     });
 
-    try {
-      await this.s3.deleteObjectRecursively({
-        bucket: file.s3Bucket,
-        key: file.s3Key,
-      });
-      await this.deleteFileRecursively(fileId);
-    } catch (error) {
-      // TODO (developer) - Handle exception
-      throw error;
-    }
+    return await this.s3.getObject({
+      bucket: file.s3Bucket,
+      key: file.s3Key,
+    });
   }
 
   // Get the file path.
@@ -278,6 +278,24 @@ export class AwsS3FileService {
     }
 
     return path;
+  }
+
+  // Delete a file in AWS S3, then delete the record in the database.
+  async deleteFile(fileId: string) {
+    const file = await this.prisma.s3File.findFirstOrThrow({
+      where: {id: fileId},
+    });
+
+    try {
+      await this.s3.deleteObjectRecursively({
+        bucket: file.s3Bucket,
+        key: file.s3Key,
+      });
+      await this.deleteFileRecursively(fileId);
+    } catch (error) {
+      // TODO (developer) - Handle exception
+      throw error;
+    }
   }
 
   //*******************************/
