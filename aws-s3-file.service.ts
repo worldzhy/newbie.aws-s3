@@ -458,15 +458,19 @@ export class AwsS3FileService {
    * https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/userguide/ShareObjectPreSignedURL.html
    */
   async getSignedDownloadUrl(fileId: string) {
-    const file = await this.prisma.s3File.findFirstOrThrow({
+    const file = await this.prisma.s3File.findFirst({
       where: {id: fileId},
       select: {s3Bucket: true, s3Key: true},
     });
 
-    return this.s3.getSignedDownloadUrl({
-      bucket: file.s3Bucket,
-      key: file.s3Key,
-    });
+    if (file) {
+      return this.s3.getSignedDownloadUrl({
+        bucket: file.s3Bucket,
+        key: file.s3Key,
+      });
+    } else {
+      return null;
+    }
   }
 
   //*********************/
