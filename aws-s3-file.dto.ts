@@ -13,6 +13,35 @@ import {
 } from '@framework/common.dto';
 import {FileEntity} from './aws-s3-file.entity';
 
+export class CreateFileResponseDto {
+  @ApiProperty({type: String})
+  id: string;
+
+  @ApiProperty({type: String})
+  name: string;
+
+  @ApiProperty({type: String, required: false})
+  type: string;
+
+  @ApiProperty({type: Number, required: false})
+  size: number;
+
+  @ApiProperty({type: String})
+  s3Bucket: string;
+
+  @ApiProperty({type: String})
+  s3Key: string;
+
+  @ApiProperty({type: String, required: false})
+  parentId: string;
+
+  @ApiProperty({type: String, required: false})
+  uploadId: string;
+
+  @ApiProperty({type: Number})
+  uploadProgress: number;
+}
+
 export class ListFilesRequestDto extends CommonListRequestDto {
   @ApiProperty({
     type: String,
@@ -94,6 +123,8 @@ export class RenameFileRequestDto {
   @IsString()
   name: string;
 }
+
+export class RenameFileResponseDto extends CreateFileResponseDto {}
 
 export class ListFilePathsResDto {
   @ApiProperty({
@@ -221,25 +252,7 @@ class UploadPartInfo {
 
 export class CreateMultipartUploadRequestDto extends CreateFileRequestDto {}
 
-export class CreateMultipartUploadResponseDto {
-  @ApiProperty({type: String, required: true})
-  name: string;
-
-  @ApiProperty({type: String, required: true})
-  type: string;
-
-  @ApiProperty({type: Number, required: true})
-  size: number;
-
-  @ApiProperty({type: String})
-  fileId: string;
-
-  @ApiProperty({type: String})
-  path: string;
-
-  @ApiProperty({type: String})
-  parentId: string;
-}
+export class CreateMultipartUploadResponseDto extends CreateFileResponseDto {}
 
 export class UploadPartRequestDto {
   @ApiProperty({type: String, required: true})
