@@ -131,8 +131,8 @@ export class UploadFileRequestDto {
     description:
       'The parent folder ID to upload the file to, do not use both `parentId` and `path` at the same time.',
   })
-  @IsString()
   @IsOptional()
+  @IsString()
   parentId?: string;
 
   @ApiProperty({
@@ -141,8 +141,8 @@ export class UploadFileRequestDto {
     description:
       'The folder path to upload the file, e.g. "uploads", not including "/" at the end.',
   })
-  @IsString()
   @IsOptional()
+  @IsString()
   path?: string;
 
   @ApiProperty({
@@ -154,14 +154,14 @@ export class UploadFileRequestDto {
   @IsOptional()
   overwrite?: boolean;
 
-  @ApiProperty({
-    type: Boolean,
-    required: false,
-    description:
-      'Whether to use the original file name when uploading. Use original name if not specified.',
-  })
-  @IsOptional()
-  useOriginalName?: boolean;
+  // @ApiProperty({
+  //   type: Boolean,
+  //   required: false,
+  //   description:
+  //     'Whether to use the original file name when uploading. Use original name if not specified.',
+  // })
+  // @IsOptional()
+  // useOriginalName?: boolean;
 }
 
 export class UploadBase64RequestDto {
@@ -171,8 +171,8 @@ export class UploadBase64RequestDto {
     description:
       'The parent folder ID to upload the file to, do not use both `parentId` and `path` at the same time.',
   })
-  @IsString()
   @IsOptional()
+  @IsString()
   parentId?: string;
 
   @ApiProperty({
@@ -181,8 +181,8 @@ export class UploadBase64RequestDto {
     description:
       'The folder path to upload the file, e.g. "uploads", not including "/" at the end.',
   })
-  @IsString()
   @IsOptional()
+  @IsString()
   path?: string;
 
   @ApiProperty({
@@ -193,12 +193,10 @@ export class UploadBase64RequestDto {
   @IsString()
   base64: string;
 
-  @ApiProperty({
-    type: String,
-    required: true,
-  })
+  @ApiProperty({type: String, required: false})
+  @IsOptional()
   @IsString()
-  originalname: string;
+  name?: string;
 
   @ApiProperty({
     type: Boolean,
@@ -208,15 +206,6 @@ export class UploadBase64RequestDto {
   })
   @IsOptional()
   overwrite?: boolean;
-
-  @ApiProperty({
-    type: Boolean,
-    required: false,
-    description:
-      'Whether to use the original file name when uploading. Use original name if not specified.',
-  })
-  @IsOptional()
-  useOriginalName?: boolean;
 }
 
 //*************************/

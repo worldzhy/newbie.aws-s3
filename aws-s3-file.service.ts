@@ -151,21 +151,25 @@ export class AwsS3FileService {
 
   /**  Upload file to local server, then upload to AWS S3. */
   async uploadFile(params: {
-    file: {
-      originalname: string;
-      mimetype: string;
-      size: number;
-      buffer: Buffer;
-    };
+    // file: {
+    //   originalname?: string;
+    //   mimetype: string;
+    //   size: number;
+    //   buffer: Buffer;
+    // };
+    buffer: Buffer; // The file buffer.
+    name?: string; // The file name, e.g. 'image.png', 'document.pdf'.
+    type?: string; // The file type, e.g. 'image/png', 'application/pdf'.
+    size?: number; // The file size in bytes.
     parentId?: string; // Do not use both `parentId` and `path` at the same time.
     path?: string; // The folder path to upload the file, e.g. 'uploads', not including `/` at the end.
     overwrite?: boolean; // Whether to overwrite the existing file
-    useOriginalName?: boolean; // Whether to use the original file name, true and undefined are both true.
+    //useOriginalName?: boolean; // Whether to use the original file name, true and undefined are both true.
   }) {
-    if (params.overwrite) {
+    if (params.name && params.overwrite) {
       const existingFile = await this.prisma.s3File.findFirst({
         where: {
-          name: params.file.originalname,
+          name: params.name,
           s3Bucket: this.bucket,
           parentId: params.parentId,
         },
@@ -175,15 +179,15 @@ export class AwsS3FileService {
         // Upload to AWS S3 with the existing file's s3Key to overwrite it.
         const output = await this.s3.putObject({
           key: existingFile.s3Key,
-          body: params.file.buffer,
+          body: params.buffer,
         });
 
         return await this.prisma.s3File.update({
           where: {id: existingFile.id},
           data: {
-            name: params.file.originalname,
-            type: params.file.mimetype,
-            size: params.file.size,
+            name: params.name,
+            type: params.type,
+            size: params.size,
             s3Response: output as object,
           },
           select: {id: true, name: true},
@@ -193,43 +197,28 @@ export class AwsS3FileService {
 
     // [step 1] Generate s3Key.
     let s3Key: string;
-    if (
-      params.useOriginalName === undefined ||
-      params.useOriginalName === true
-    ) {
-      if (params.parentId) {
-        s3Key =
-          (await this.getFilePathString(params.parentId)) +
-          `/${params.file.originalname}`;
-      } else if (params.path) {
-        s3Key = `${params.path}/${params.file.originalname}`;
-      } else {
-        s3Key = params.file.originalname;
-      }
+    params.name = params.name ?? generateUuid();
+    if (params.parentId) {
+      s3Key =
+        (await this.getFilePathString(params.parentId)) + `/${params.name}`;
+    } else if (params.path) {
+      s3Key = `${params.path}/${params.name}`;
     } else {
-      if (params.parentId) {
-        s3Key =
-          (await this.getFilePathString(params.parentId)) +
-          `/${generateUuid()}${extname(params.file.originalname)}`;
-      } else if (params.path) {
-        s3Key = `${params.path}/${generateUuid()}${extname(params.file.originalname)}`;
-      } else {
-        s3Key = `${generateUuid()}${extname(params.file.originalname)}`;
-      }
+      s3Key = params.name;
     }
 
     // [step 2] Put file to AWS S3.
     const output = await this.s3.putObject({
       key: s3Key,
-      body: params.file.buffer,
+      body: params.buffer,
     });
 
     // [step 3] Create a record.
     return await this.prisma.s3File.create({
       data: {
-        name: params.file.originalname,
-        type: params.file.mimetype,
-        size: params.file.size,
+        name: params.name,
+        type: params.type,
+        size: params.size,
         s3Bucket: this.bucket,
         s3Key: s3Key,
         s3Response: output as object,

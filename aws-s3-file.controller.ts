@@ -124,36 +124,30 @@ export class AwsS3FileController {
     @UploadedFile() file: Express.Multer.File
   ) {
     return await this.s3File.uploadFile({
-      file: file,
+      buffer: file.buffer,
+      name: file.originalname,
+      type: file.mimetype,
+      size: file.size,
       ...body,
     });
   }
 
   @Post('upload-base64')
   async uploadBase64(@Body() body: UploadBase64RequestDto) {
-    const {base64, originalname, ...others} = body;
-    const mimetypeMatch = base64.match(/^data:([\w\/]+);base64,/);
-    const mimetype = mimetypeMatch ? mimetypeMatch[1] : '';
-    if (!mimetype) {
-      throw new BadRequestException(
-        'Invalid base64 data, no mimetype found, missing data:, e.g. [data:image/png;base64,]'
-      );
-    }
+    const {base64, ...others} = body;
+
+    // Convert base64 to buffer
     const base64Data = base64.replace(/^data:([\w\/]+);base64,/, '');
     const buffer = Buffer.from(base64Data, 'base64');
 
-    // create a Express.Multer.File structure
-    const base64File = {
-      fieldname: 'base64',
-      originalname,
-      encoding: '7bit',
-      mimetype,
-      size: buffer.length,
-      buffer,
-    };
+    // Extract mimetype from base64 string
+    const mimetypeMatch = base64.match(/^data:([\w\/]+);base64,/);
+    const mimetype = mimetypeMatch ? mimetypeMatch[1] : '';
 
     return await this.s3File.uploadFile({
-      file: base64File as Express.Multer.File,
+      buffer: buffer,
+      type: mimetype,
+      size: buffer.length,
       ...others,
     });
   }
