@@ -153,15 +153,6 @@ export class UploadFileRequestDto {
   })
   @IsOptional()
   overwrite?: boolean;
-
-  // @ApiProperty({
-  //   type: Boolean,
-  //   required: false,
-  //   description:
-  //     'Whether to use the original file name when uploading. Use original name if not specified.',
-  // })
-  // @IsOptional()
-  // useOriginalName?: boolean;
 }
 
 export class UploadBase64RequestDto {
