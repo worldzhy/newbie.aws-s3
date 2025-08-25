@@ -9,7 +9,6 @@ import {
   Controller,
   UploadedFile,
   UseInterceptors,
-  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,

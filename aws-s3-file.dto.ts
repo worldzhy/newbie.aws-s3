@@ -57,11 +57,11 @@ export class CreateFolderRequestDto {
 export class CreateFileRequestDto {
   @ApiProperty({type: String, required: true})
   @IsString()
-  originalname: string;
+  name: string;
 
   @ApiProperty({type: String, required: true})
   @IsString()
-  mimetype: string;
+  type: string;
 
   @ApiProperty({type: Number, required: true})
   @Type(() => Number)

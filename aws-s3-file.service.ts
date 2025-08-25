@@ -292,15 +292,15 @@ export class AwsS3FileService {
   //*******************************/
 
   async createMultipartUpload(params: {
-    originalname: string;
-    mimetype: string;
+    name: string;
+    type: string;
     size: number;
     parentId?: string;
     path?: string;
   }) {
     // [step 1] Generate s3Key.
     const s3Key = await this.generateS3Key({
-      originalname: params.originalname,
+      name: params.name,
       parentId: params.parentId,
       path: params.path,
     });
@@ -314,8 +314,8 @@ export class AwsS3FileService {
     // [step 3] Create a record.
     return await this.prisma.s3File.create({
       data: {
-        name: params.originalname,
-        type: params.mimetype,
+        name: params.name,
+        type: params.type,
         size: params.size,
         s3Bucket: this.bucket,
         s3Key: s3Key,
@@ -396,15 +396,15 @@ export class AwsS3FileService {
    * https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/userguide/PresignedUrlUploadObject.html
    */
   async getSignedUploadUrl(params: {
-    originalname: string;
-    mimetype: string;
+    name: string;
+    type: string;
     size: number;
     parentId?: string;
     path?: string;
   }) {
     // [step 1] Generate s3Key.
     const s3Key = await this.generateS3Key({
-      originalname: params.originalname,
+      name: params.name,
       parentId: params.parentId,
       path: params.path,
     });
@@ -412,8 +412,8 @@ export class AwsS3FileService {
     // [step 2] Create a record.
     const file = await this.prisma.s3File.create({
       data: {
-        name: params.originalname,
-        type: params.mimetype,
+        name: params.name,
+        type: params.type,
         size: params.size,
         s3Bucket: this.bucket,
         s3Key: s3Key,
@@ -485,7 +485,7 @@ export class AwsS3FileService {
   }
 
   private async generateS3Key(params: {
-    originalname: string;
+    name: string;
     parentId?: string;
     path?: string;
   }) {
@@ -494,11 +494,11 @@ export class AwsS3FileService {
     if (params.parentId) {
       s3Key =
         (await this.getFilePathString(params.parentId)) +
-        `/${generateUuid()}${extname(params.originalname)}`;
+        `/${generateUuid()}${extname(params.name)}`;
     } else if (params.path) {
-      s3Key = `${params.path}/${generateUuid()}${extname(params.originalname)}`;
+      s3Key = `${params.path}/${generateUuid()}${extname(params.name)}`;
     } else {
-      s3Key = `${generateUuid()}${extname(params.originalname)}`;
+      s3Key = `${generateUuid()}${extname(params.name)}`;
     }
 
     return s3Key;
