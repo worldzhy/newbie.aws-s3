@@ -148,8 +148,9 @@ export class UploadFileRequestDto {
   @ApiProperty({
     type: Boolean,
     required: false,
-    description:
-      'Whether to overwrite the file if it already exists. Do not overwrite the existing file if not specified.',
+    description: `1. This option will only take effect when 'name' is provided.
+     2. Default to false, do not overwrite the existing file.
+     3. If overwrite is true, the existing file with the same name in the same folder will be overwritten.`,
   })
   @IsOptional()
   overwrite?: boolean;
@@ -184,7 +185,11 @@ export class UploadBase64RequestDto {
   @IsString()
   base64: string;
 
-  @ApiProperty({type: String, required: false})
+  @ApiProperty({
+    type: String,
+    required: false,
+    description: 'If not set, a random name will be generated.',
+  })
   @IsOptional()
   @IsString()
   name?: string;
@@ -192,8 +197,9 @@ export class UploadBase64RequestDto {
   @ApiProperty({
     type: Boolean,
     required: false,
-    description:
-      'Whether to overwrite the file if it already exists. Do not overwrite the existing file if not specified.',
+    description: `1. This option will only take effect when 'name' is provided.
+     2. Default to false, do not overwrite the existing file.
+     3. If overwrite is true, the existing file with the same name in the same folder will be overwritten.`,
   })
   @IsOptional()
   overwrite?: boolean;

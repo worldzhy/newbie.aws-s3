@@ -74,7 +74,10 @@ export class AwsS3FileController {
     description: 'Create a folder in AWS S3',
   })
   async createFolder(@Body() body: CreateFolderRequestDto) {
-    return await this.s3File.createFolder(body);
+    return await this.s3File.createFolder({
+      path: body.name,
+      parentId: body.parentId,
+    });
   }
 
   @Get(':fileId/path')

@@ -1,7 +1,10 @@
 import {Injectable} from '@nestjs/common';
 import {ConfigService} from '@nestjs/config';
 import {PrismaService} from '@framework/prisma/prisma.service';
-import {generateUuid} from '@framework/utilities/random.util';
+import {
+  generateRandomString,
+  generateUuid,
+} from '@framework/utilities/random.util';
 import {extname} from 'path';
 import {AwsS3Service} from './aws-s3.service';
 
@@ -100,74 +103,86 @@ export class AwsS3FileService {
 
   /** Create a folder in AWS S3, then create a record in the database. */
   async createFolder(params: {
-    name: string; // The folder name, e.g. 'uploads', 'uploads/images'.
+    path: string; // The folder path, e.g. 'uploads', 'uploads/images'.
     parentId?: string; // The parent folder ID, if not provided, the folder will be created in the root directory.
   }) {
     let parentId = params.parentId;
-    let s3Key = '';
 
-    // If there are `/` in the folder name, create multi-level folders.
-    const folderNames = params.name.split('/');
-    if (folderNames.length === 1 && folderNames[0].length === 0) {
-      throw new Error('Folder name cannot be empty.');
-    }
+    // Remove leading and trailing slashes from path
+    params.path = params.path.replace(/^\/+|\/+$/g, '');
 
-    for (let i = 0, j = 0; i < folderNames.length; i++) {
+    // convert the path to a folder if it does not exist
+    const folderNames = params.path.split('/');
+    for (let i = 0; i < folderNames.length; i++) {
       if (folderNames[i].length === 0) {
         continue; // Skip empty folder names.
       }
 
-      if (j === 0) {
-        if (params.parentId) {
-          s3Key =
-            (await this.getFilePathString(params.parentId)) +
-            '/' +
-            folderNames[i];
-        } else {
-          s3Key = folderNames[i];
-        }
-      } else {
-        s3Key = s3Key + '/' + folderNames[i];
-      }
-
-      const output = await this.s3.putObject({key: s3Key + '/'});
-      const folder = await this.prisma.s3File.create({
-        data: {
+      const existingFolder = await this.prisma.s3File.findFirst({
+        where: {
           name: folderNames[i],
           type: 'folder',
-          s3Bucket: this.bucket,
-          s3Key: s3Key,
-          s3Response: output as object,
           parentId: parentId,
         },
       });
 
-      parentId = folder.id; // Update parentId for the next iteration.
-      j++; // Increment j to track the level of folder creation.
-    }
+      if (existingFolder) {
+        parentId = existingFolder.id;
+      } else {
+        let s3Key: string;
+        if (parentId) {
+          s3Key =
+            (await this.getFilePathString(parentId)) + '/' + folderNames[i];
+        } else {
+          s3Key = folderNames[i];
+        }
 
-    return parentId; // Return the ID of the last created folder.
+        const output = await this.s3.putObject({key: s3Key + '/'});
+        const folder = await this.prisma.s3File.create({
+          data: {
+            name: folderNames[i],
+            type: 'folder',
+            s3Bucket: this.bucket,
+            s3Key: s3Key,
+            s3Response: output as object,
+            parentId: parentId,
+          },
+        });
+
+        parentId = folder.id;
+      }
+    }
+    return parentId; // The ID of the last folder created.
   }
 
   /**  Upload file to local server, then upload to AWS S3. */
   async uploadFile(params: {
-    // file: {
-    //   originalname?: string;
-    //   mimetype: string;
-    //   size: number;
-    //   buffer: Buffer;
-    // };
     buffer: Buffer; // The file buffer.
     name?: string; // The file name, e.g. 'image.png', 'document.pdf'.
     type?: string; // The file type, e.g. 'image/png', 'application/pdf'.
     size?: number; // The file size in bytes.
     parentId?: string; // Do not use both `parentId` and `path` at the same time.
-    path?: string; // The folder path to upload the file, e.g. 'uploads', not including `/` at the end.
+    path?: string; // The folder path to upload the file, e.g. "uploads", not including "/" at the end.
     overwrite?: boolean; // Whether to overwrite the existing file
-    //useOriginalName?: boolean; // Whether to use the original file name, true and undefined are both true.
   }) {
-    if (params.name && params.overwrite) {
-      const existingFile = await this.prisma.s3File.findFirst({
+    // Validate parameters
+    if (params.path && params.parentId) {
+      throw new Error(
+        'Do not use both `parentId` and `path` at the same time.'
+      );
+    }
+
+    // Create or get the parent folder if path is provided.
+    if (params.path) {
+      params.parentId = await this.createFolder({
+        path: params.path,
+      });
+    }
+
+    // [step 1] Check if a file with the same name exists in the same folder.
+    let existingFile: {id: string; s3Key: string} | null = null;
+    if (params.name) {
+      existingFile = await this.prisma.s3File.findFirst({
         where: {
           name: params.name,
           s3Bucket: this.bucket,
@@ -175,64 +190,73 @@ export class AwsS3FileService {
         },
         select: {id: true, s3Key: true},
       });
-      if (existingFile) {
-        // Upload to AWS S3 with the existing file's s3Key to overwrite it.
-        const output = await this.s3.putObject({
-          key: existingFile.s3Key,
-          body: params.buffer,
-        });
+    } else {
+      params.name = generateUuid();
+    }
 
-        return await this.prisma.s3File.update({
-          where: {id: existingFile.id},
-          data: {
-            name: params.name,
-            type: params.type,
-            size: params.size,
-            s3Response: output as object,
-          },
-          select: {id: true, name: true},
-        });
+    // [step 2]  Generate s3Key and name based on whether the file exists and the overwrite option.
+    let name: string;
+    let s3Key: string;
+    if (existingFile) {
+      if (params.overwrite) {
+        name = params.name;
+        s3Key = existingFile.s3Key;
+      } else {
+        const ext = extname(params.name);
+        if (ext === '') {
+          name = params.name + generateRandomString(6);
+        } else {
+          name =
+            params.name.slice(0, -ext.length) + generateRandomString(6) + ext;
+        }
+
+        if (params.parentId) {
+          s3Key = (await this.getFilePathString(params.parentId)) + `/${name}`;
+        } else {
+          s3Key = name;
+        }
+      }
+    } else {
+      if (params.parentId) {
+        name = params.name;
+        s3Key = (await this.getFilePathString(params.parentId)) + `/${name}`;
+      } else {
+        name = params.name;
+        s3Key = name;
       }
     }
 
-    // [step 1] Generate s3Key.
-    let s3Key: string;
-    params.name = params.name ?? generateUuid();
-    if (params.parentId) {
-      s3Key =
-        (await this.getFilePathString(params.parentId)) + `/${params.name}`;
-    } else if (params.path) {
-      s3Key = `${params.path}/${params.name}`;
-    } else {
-      s3Key = params.name;
-    }
-
-    // [step 2] Put file to AWS S3.
+    // [step 3] Upload file to S3.
     const output = await this.s3.putObject({
       key: s3Key,
       body: params.buffer,
     });
 
-    // [step 3] Create a record.
-    return await this.prisma.s3File.create({
-      data: {
-        name: params.name,
-        type: params.type,
-        size: params.size,
-        s3Bucket: this.bucket,
-        s3Key: s3Key,
-        s3Response: output as object,
-        parentId: params.parentId,
-      },
-      select: {id: true, name: true},
-    });
-
-    // return {
-    //   url: `https://${s3File.s3Bucket}.s3.${this.region}.amazonaws.com/${s3File.s3Key}`,
-    //   cdnUrl: this.cdnHostname
-    //     ? `${this.cdnHostname}/${s3File.s3Key}`
-    //     : undefined,
-    // };
+    // [step 4] Create or update a record in the database.
+    if (existingFile && params.overwrite) {
+      return await this.prisma.s3File.update({
+        where: {id: existingFile.id},
+        data: {
+          type: params.type,
+          size: params.size,
+          s3Response: output as object,
+        },
+        select: {id: true, name: true},
+      });
+    } else {
+      return await this.prisma.s3File.create({
+        data: {
+          name: params.name,
+          type: params.type,
+          size: params.size,
+          s3Bucket: this.bucket,
+          s3Key: s3Key,
+          s3Response: output as object,
+          parentId: params.parentId,
+        },
+        select: {id: true, name: true},
+      });
+    }
   }
 
   // Get the file body by ID.
