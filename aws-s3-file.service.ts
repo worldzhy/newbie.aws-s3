@@ -8,6 +8,8 @@ import {
 import {extname} from 'path';
 import {AwsS3Service} from './aws-s3.service';
 
+export const SYSTEM_FOLDER_PATH = '_system/';
+
 @Injectable()
 export class AwsS3FileService {
   private bucket: string;
