@@ -9,7 +9,6 @@ import {
   DeleteBucketCommand,
   DeleteObjectsCommand,
   ListObjectsV2Command,
-  GetObjectCommandInput,
   AbortMultipartUploadCommand,
   CreateMultipartUploadCommand,
   CompleteMultipartUploadCommand,
