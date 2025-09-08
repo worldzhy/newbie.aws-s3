@@ -12,6 +12,7 @@ import {
   AbortMultipartUploadCommand,
   CreateMultipartUploadCommand,
   CompleteMultipartUploadCommand,
+  CopyObjectCommand,
 } from '@aws-sdk/client-s3';
 import {getSignedUrl} from '@aws-sdk/s3-request-presigner';
 
@@ -86,6 +87,47 @@ export class AwsS3Service {
         Bucket: params.bucket ?? this.bucket,
         Key: params.key,
         Body: params.body,
+      })
+    );
+  }
+
+  async copyObject(params: {
+    bucket?: string;
+    sourceKey: string;
+    destinationKey: string;
+  }) {
+    return await this.client.send(
+      new CopyObjectCommand({
+        Bucket: params.bucket ?? this.bucket,
+        CopySource: params.bucket
+          ? `${params.bucket}/${params.sourceKey}`
+          : `${this.bucket}/${params.sourceKey}`,
+        Key: params.destinationKey,
+      })
+    );
+  }
+
+  async moveObject(params: {
+    bucket?: string;
+    sourceKey: string;
+    destinationKey: string;
+  }) {
+    // [step 1] Copy the object to the new location
+    await this.client.send(
+      new CopyObjectCommand({
+        Bucket: params.bucket ?? this.bucket,
+        CopySource: params.bucket
+          ? `${params.bucket}/${params.sourceKey}`
+          : `${this.bucket}/${params.sourceKey}`,
+        Key: params.destinationKey,
+      })
+    );
+
+    // [step 2] Delete the original object
+    await this.client.send(
+      new DeleteObjectsCommand({
+        Bucket: params.bucket ?? this.bucket,
+        Delete: {Objects: [{Key: params.sourceKey}]},
       })
     );
   }

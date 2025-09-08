@@ -32,6 +32,7 @@ import {
   CompleteMultipartUploadRequestDto,
   AbortMultipartUploadRequestDto,
   RenameFileResponseDto,
+  MoveFileRequestDto,
 } from './aws-s3-file.dto';
 import {Prisma} from '@prisma/client';
 import {AwsS3FileService} from './aws-s3-file.service';
@@ -99,6 +100,17 @@ export class AwsS3FileController {
     return await this.prisma.s3File.update({
       where: {id: fileId},
       data: {name: body.name},
+    });
+  }
+
+  @Patch(':fileId/move')
+  async moveFile(
+    @Param('fileId') fileId: string,
+    @Body() body: MoveFileRequestDto
+  ) {
+    return await this.s3File.moveFileOrFolder({
+      fileId,
+      destinationParentId: body.destinationParentId,
     });
   }
 

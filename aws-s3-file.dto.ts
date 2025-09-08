@@ -49,8 +49,8 @@ export class ListFilesRequestDto extends CommonListRequestDto {
     description:
       'The folder ID to list files in, if not provided, lists root files.',
   })
-  @IsString()
   @IsOptional()
+  @IsString()
   parentId?: string;
 }
 
@@ -78,8 +78,8 @@ export class CreateFolderRequestDto {
     required: false,
     description: 'The parent folder ID to create the folder in.',
   })
-  @IsString()
   @IsOptional()
+  @IsString()
   parentId?: string;
 }
 
@@ -103,8 +103,8 @@ export class CreateFileRequestDto {
     description:
       'The folder ID to create the file in, do not use both `parentId` and `path` at the same time.',
   })
-  @IsString()
   @IsOptional()
+  @IsString()
   parentId?: string; // Do not use both `parentId` and `path`
 
   @ApiProperty({
@@ -113,8 +113,8 @@ export class CreateFileRequestDto {
     description:
       'The folder path to upload the file, e.g. "uploads", not including "/" at the end.',
   })
-  @IsString()
   @IsOptional()
+  @IsString()
   path?: string;
 }
 
@@ -125,6 +125,17 @@ export class RenameFileRequestDto {
 }
 
 export class RenameFileResponseDto extends CreateFileResponseDto {}
+
+export class MoveFileRequestDto {
+  @ApiProperty({
+    type: String,
+    required: false,
+    description: `The destination folder ID to move the file or folder to. If not provided, moves to root folder.`,
+  })
+  @IsOptional()
+  @IsString()
+  destinationParentId?: string;
+}
 
 export class ListFilePathsResDto {
   @ApiProperty({

@@ -299,6 +299,48 @@ export class AwsS3FileService {
     return path;
   }
 
+  async moveFileOrFolder(params: {
+    fileId: string; // The file or folder ID to be moved.
+    destinationParentId?: string; // The destination folder ID, if not provided, the file will be moved to the root directory.
+    overwrite?: boolean; // Whether to overwrite the existing file
+  }) {
+    const destinationParentId = params.destinationParentId;
+
+    // [step 1] Get the file or folder to be moved.
+    const originalFile = await this.prisma.s3File.findFirstOrThrow({
+      where: {id: params.fileId},
+      select: {id: true, name: true, s3Bucket: true, s3Key: true, type: true},
+    });
+
+    // [step 2] Move the file or folder.
+    if (originalFile.type === 'folder') {
+      const newFolder = await this.moveSingleFile({
+        fileId: originalFile.id,
+        destinationParentId: destinationParentId,
+        overwrite: params.overwrite,
+      });
+
+      const filesInFolder = await this.prisma.s3File.findMany({
+        where: {parentId: originalFile.id},
+        select: {id: true},
+      });
+
+      for (let i = 0; i < filesInFolder.length; i++) {
+        await this.moveFileOrFolder({
+          fileId: filesInFolder[i].id,
+          destinationParentId: newFolder.id,
+          overwrite: params.overwrite,
+        });
+      }
+    } else {
+      await this.moveSingleFile({
+        fileId: originalFile.id,
+        destinationParentId: destinationParentId,
+        overwrite: params.overwrite,
+      });
+    }
+  }
+
   // Delete a file in AWS S3, then delete the record in the database.
   async deleteFile(fileId: string) {
     const file = await this.prisma.s3File.findFirstOrThrow({
@@ -536,5 +578,91 @@ export class AwsS3FileService {
     }
 
     return s3Key;
+  }
+
+  private async moveSingleFile(params: {
+    fileId: string; // The file ID to be moved.
+    destinationParentId?: string; // The destination folder ID, if not provided, the file will be moved to the root directory.
+    overwrite?: boolean; // Whether to overwrite the existing file
+  }) {
+    const destinationParentId = params.destinationParentId || null;
+
+    // [step 1] Get the file to be moved.
+    const file = await this.prisma.s3File.findFirstOrThrow({
+      where: {id: params.fileId},
+      select: {id: true, name: true, s3Bucket: true, s3Key: true},
+    });
+
+    // [step 2] Check if a file with the same name exists in the destination folder.
+    const existingFile = await this.prisma.s3File.findFirst({
+      where: {
+        name: file.name,
+        s3Bucket: this.bucket,
+        parentId: destinationParentId,
+      },
+      select: {id: true, s3Key: true},
+    });
+
+    // [step 3]  Generate destination s3Key and name based on whether the file exists and the overwrite option.
+    let destinationS3Key: string;
+    if (existingFile) {
+      if (params.overwrite) {
+        destinationS3Key = existingFile.s3Key;
+      } else {
+        const ext = extname(file.name);
+        let name: string;
+        if (ext === '') {
+          name = file.name + generateRandomString(6);
+        } else {
+          name =
+            file.name.slice(0, -ext.length) + generateRandomString(6) + ext;
+        }
+
+        if (destinationParentId) {
+          destinationS3Key =
+            (await this.getFilePathString(destinationParentId)) + `/${name}`;
+        } else {
+          destinationS3Key = name;
+        }
+      }
+    } else {
+      if (destinationParentId) {
+        destinationS3Key =
+          (await this.getFilePathString(destinationParentId)) + `/${file.name}`;
+      } else {
+        destinationS3Key = file.name;
+      }
+    }
+
+    // [step 4] Move the object in S3 and create a new record in the database.
+    await this.s3.copyObject({
+      bucket: this.bucket,
+      sourceKey: file.s3Key,
+      destinationKey: destinationS3Key,
+    });
+
+    let newFile = file;
+    if (existingFile && params.overwrite) {
+      // Do nothing.
+    } else {
+      newFile = await this.prisma.s3File.create({
+        data: {
+          name: file.name,
+          s3Bucket: file.s3Bucket,
+          s3Key: destinationS3Key,
+          parentId: destinationParentId,
+        },
+        select: {id: true, name: true, s3Bucket: true, s3Key: true},
+      });
+    }
+
+    // [step 5] Delete the original object and record.
+    await this.s3.deleteObjectRecursively({
+      bucket: file.s3Bucket,
+      key: file.s3Key,
+    });
+    await this.deleteFileRecursively(file.id);
+
+    return newFile;
   }
 }
