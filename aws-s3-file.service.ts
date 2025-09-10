@@ -315,7 +315,7 @@ export class AwsS3FileService {
     // [step 2] Move the file or folder.
     if (originalFile.type === 'folder') {
       const newFolder = await this.moveSingleFile({
-        fileId: originalFile.id,
+        file: originalFile,
         destinationParentId: destinationParentId,
         overwrite: params.overwrite,
       });
@@ -334,7 +334,7 @@ export class AwsS3FileService {
       }
     } else {
       await this.moveSingleFile({
-        fileId: originalFile.id,
+        file: originalFile,
         destinationParentId: destinationParentId,
         overwrite: params.overwrite,
       });
@@ -581,17 +581,12 @@ export class AwsS3FileService {
   }
 
   private async moveSingleFile(params: {
-    fileId: string; // The file ID to be moved.
+    file: any; // The file to be moved.
     destinationParentId?: string; // The destination folder ID, if not provided, the file will be moved to the root directory.
     overwrite?: boolean; // Whether to overwrite the existing file
   }) {
+    const file = params.file;
     const destinationParentId = params.destinationParentId || null;
-
-    // [step 1] Get the file to be moved.
-    const file = await this.prisma.s3File.findFirstOrThrow({
-      where: {id: params.fileId},
-      select: {id: true, name: true, s3Bucket: true, s3Key: true},
-    });
 
     // [step 2] Check if a file with the same name exists in the destination folder.
     const existingFile = await this.prisma.s3File.findFirst({
@@ -635,7 +630,7 @@ export class AwsS3FileService {
     }
 
     // [step 4] Move the object in S3 and create a new record in the database.
-    await this.s3.copyObject({
+    const s3CopyResponse = await this.s3.copyObject({
       bucket: this.bucket,
       sourceKey: file.s3Key,
       destinationKey: destinationS3Key,
@@ -648,8 +643,11 @@ export class AwsS3FileService {
       newFile = await this.prisma.s3File.create({
         data: {
           name: file.name,
+          type: file.type,
+          size: file.size,
           s3Bucket: file.s3Bucket,
           s3Key: destinationS3Key,
+          s3Response: s3CopyResponse as object,
           parentId: destinationParentId,
         },
         select: {id: true, name: true, s3Bucket: true, s3Key: true},
