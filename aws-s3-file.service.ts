@@ -5,6 +5,7 @@ import {
   generateRandomString,
   generateUuid,
 } from '@framework/utilities/random.util';
+import {S3File} from '@prisma/client';
 import {extname} from 'path';
 import {AwsS3Service} from './aws-s3.service';
 
@@ -309,7 +310,6 @@ export class AwsS3FileService {
     // [step 1] Get the file or folder to be moved.
     const originalFile = await this.prisma.s3File.findFirstOrThrow({
       where: {id: params.fileId},
-      select: {id: true, name: true, s3Bucket: true, s3Key: true, type: true},
     });
 
     // [step 2] Move the file or folder.
@@ -581,7 +581,7 @@ export class AwsS3FileService {
   }
 
   private async moveSingleFile(params: {
-    file: any; // The file to be moved.
+    file: S3File; // The file to be moved.
     destinationParentId?: string; // The destination folder ID, if not provided, the file will be moved to the root directory.
     overwrite?: boolean; // Whether to overwrite the existing file
   }) {
@@ -650,7 +650,6 @@ export class AwsS3FileService {
           s3Response: s3CopyResponse as object,
           parentId: destinationParentId,
         },
-        select: {id: true, name: true, s3Bucket: true, s3Key: true},
       });
     }
 
