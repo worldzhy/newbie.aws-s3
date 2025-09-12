@@ -4,6 +4,7 @@ import {
   S3Client,
   GetObjectCommand,
   PutObjectCommand,
+  CopyObjectCommand,
   UploadPartCommand,
   CreateBucketCommand,
   DeleteBucketCommand,
@@ -12,7 +13,6 @@ import {
   AbortMultipartUploadCommand,
   CreateMultipartUploadCommand,
   CompleteMultipartUploadCommand,
-  CopyObjectCommand,
 } from '@aws-sdk/client-s3';
 import {getSignedUrl} from '@aws-sdk/s3-request-presigner';
 
@@ -128,6 +128,15 @@ export class AwsS3Service {
       new DeleteObjectsCommand({
         Bucket: params.bucket ?? this.bucket,
         Delete: {Objects: [{Key: params.sourceKey}]},
+      })
+    );
+  }
+
+  async deleteObject(params: {bucket?: string; key: string}) {
+    return await this.client.send(
+      new DeleteObjectsCommand({
+        Bucket: params.bucket ?? this.bucket,
+        Delete: {Objects: [{Key: params.key}]},
       })
     );
   }

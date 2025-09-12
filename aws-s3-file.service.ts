@@ -61,7 +61,6 @@ export class AwsS3FileService {
     for (const {s3Key, size} of objects) {
       let fileName = '';
       let fileType = '';
-      let fileSize = size;
 
       if (s3Key.endsWith('/')) {
         fileName = s3Key.slice(0, -1).split('/').pop() || '';
@@ -72,9 +71,9 @@ export class AwsS3FileService {
       }
 
       createManyInputs.push({
+        size,
         name: fileName,
         type: fileType,
-        size: fileSize,
         s3Bucket: this.bucket,
         s3Key: s3Key,
       });
@@ -211,10 +210,12 @@ export class AwsS3FileService {
       } else {
         const ext = extname(params.name);
         if (ext === '') {
-          name = params.name + generateRandomString(6);
+          name = params.name + (await generateRandomString(6));
         } else {
           name =
-            params.name.slice(0, -ext.length) + generateRandomString(6) + ext;
+            params.name.slice(0, -ext.length) +
+            (await generateRandomString(6)) +
+            ext;
         }
 
         if (params.parentId) {
@@ -314,24 +315,15 @@ export class AwsS3FileService {
 
     // [step 2] Move the file or folder.
     if (originalFile.type === 'folder') {
-      const newFolder = await this.moveSingleFile({
-        file: originalFile,
+      await this.moveFolder({
+        folder: originalFile,
         destinationParentId: destinationParentId,
-        overwrite: params.overwrite,
       });
-
-      const filesInFolder = await this.prisma.s3File.findMany({
-        where: {parentId: originalFile.id},
-        select: {id: true},
+      await this.s3.deleteObjectRecursively({
+        bucket: originalFile.s3Bucket,
+        key: originalFile.s3Key,
       });
-
-      for (let i = 0; i < filesInFolder.length; i++) {
-        await this.moveFileOrFolder({
-          fileId: filesInFolder[i].id,
-          destinationParentId: newFolder.id,
-          overwrite: params.overwrite,
-        });
-      }
+      await this.deleteFileRecursively(originalFile.id);
     } else {
       await this.moveSingleFile({
         file: originalFile,
@@ -585,13 +577,15 @@ export class AwsS3FileService {
     destinationParentId?: string; // The destination folder ID, if not provided, the file will be moved to the root directory.
     overwrite?: boolean; // Whether to overwrite the existing file
   }) {
+    // [step 1] Get the file.
     const file = params.file;
     const destinationParentId = params.destinationParentId || null;
+    const s3Name: string = params.file.s3Key.split('/').pop() || '';
 
     // [step 2] Check if a file with the same name exists in the destination folder.
     const existingFile = await this.prisma.s3File.findFirst({
       where: {
-        name: file.name,
+        s3Key: file.s3Key,
         s3Bucket: this.bucket,
         parentId: destinationParentId,
       },
@@ -600,45 +594,37 @@ export class AwsS3FileService {
 
     // [step 3]  Generate destination s3Key and name based on whether the file exists and the overwrite option.
     let destinationS3Key: string;
-    if (existingFile) {
-      if (params.overwrite) {
-        destinationS3Key = existingFile.s3Key;
-      } else {
-        const ext = extname(file.name);
-        let name: string;
-        if (ext === '') {
-          name = file.name + generateRandomString(6);
-        } else {
-          name =
-            file.name.slice(0, -ext.length) + generateRandomString(6) + ext;
-        }
 
-        if (destinationParentId) {
-          destinationS3Key =
-            (await this.getFilePathString(destinationParentId)) + `/${name}`;
-        } else {
-          destinationS3Key = name;
-        }
-      }
+    if (existingFile && params.overwrite) {
+      destinationS3Key = existingFile.s3Key;
     } else {
       if (destinationParentId) {
         destinationS3Key =
-          (await this.getFilePathString(destinationParentId)) + `/${file.name}`;
+          (await this.getFilePathString(destinationParentId)) + `/${s3Name}`;
       } else {
-        destinationS3Key = file.name;
+        destinationS3Key = s3Name;
       }
     }
 
     // [step 4] Move the object in S3 and create a new record in the database.
+    let newFile: S3File;
     const s3CopyResponse = await this.s3.copyObject({
       bucket: this.bucket,
       sourceKey: file.s3Key,
       destinationKey: destinationS3Key,
     });
 
-    let newFile = file;
     if (existingFile && params.overwrite) {
-      // Do nothing.
+      newFile = await this.prisma.s3File.update({
+        where: {id: existingFile.id},
+        data: {
+          type: file.type,
+          size: file.size,
+          s3Bucket: file.s3Bucket,
+          s3Key: destinationS3Key,
+          s3Response: s3CopyResponse as object,
+        },
+      });
     } else {
       newFile = await this.prisma.s3File.create({
         data: {
@@ -654,12 +640,67 @@ export class AwsS3FileService {
     }
 
     // [step 5] Delete the original object and record.
-    await this.s3.deleteObjectRecursively({
+    await this.s3.deleteObject({
       bucket: file.s3Bucket,
       key: file.s3Key,
     });
-    await this.deleteFileRecursively(file.id);
-
+    await this.deleteFile(file.id);
     return newFile;
+  }
+
+  async moveFolder(params: {
+    folder: S3File; // The folder to be moved.
+    destinationParentId?: string; // The destination folder ID, if not provided, the file will be moved to the root directory.
+  }) {
+    let destinationPath = '';
+    const {folder, destinationParentId = null} = params;
+    const existingFolder = await this.prisma.s3File.findFirst({
+      where: {
+        name: folder.name,
+        s3Bucket: this.bucket,
+        parentId: destinationParentId,
+      },
+      select: {id: true},
+    });
+
+    if (existingFolder) {
+      folder.name = folder.name + (await generateRandomString(6));
+    }
+    if (destinationParentId) {
+      destinationPath =
+        (await this.getFilePathString(destinationParentId)) + `/${folder.name}`;
+    } else {
+      destinationPath = folder.name;
+    }
+    const output = await this.s3.putObject({key: destinationPath + '/'});
+    const newFolder = await this.prisma.s3File.create({
+      data: {
+        type: 'folder',
+        name: folder.name,
+        s3Bucket: this.bucket,
+        s3Key: destinationPath,
+        s3Response: output as object,
+        parentId: destinationParentId,
+      },
+    });
+    const filesInFolder = await this.prisma.s3File.findMany({
+      where: {parentId: folder.id},
+    });
+
+    for (let i = 0; i < filesInFolder.length; i++) {
+      const file = filesInFolder[i];
+
+      if (file.type === 'folder') {
+        await this.moveFolder({
+          folder: file,
+          destinationParentId: newFolder.id,
+        });
+      } else {
+        await this.moveSingleFile({
+          file,
+          destinationParentId: newFolder.id,
+        });
+      }
+    }
   }
 }
