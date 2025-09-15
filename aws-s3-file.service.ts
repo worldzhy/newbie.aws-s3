@@ -619,7 +619,7 @@ export class AwsS3FileService {
     // [step 4] Copy the object in S3 and create a new record in the database.
     const s3CopyResponse = await this.s3.copyObject({
       bucket: this.bucket,
-      sourceKey: file.s3Key,
+      sourceKey: encodeURIComponent(file.s3Key), // [issue] https://github.com/aws/aws-sdk-js-v3/issues/6596
       destinationKey: destinationS3Key,
     });
 
