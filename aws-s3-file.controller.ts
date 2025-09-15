@@ -66,7 +66,10 @@ export class AwsS3FileController {
     return await this.prisma.findManyInManyPages({
       model: Prisma.ModelName.S3File,
       pagination: {page: query.page, pageSize: query.pageSize},
-      findManyArgs: {where: {parentId: query.parentId ?? null}},
+      findManyArgs: {
+        where: {parentId: query.parentId ?? null},
+        orderBy: {name: 'asc'},
+      },
     });
   }
 
