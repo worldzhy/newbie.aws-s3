@@ -494,7 +494,8 @@ export class AwsS3FileService {
     const signedUploadUrl = await this.s3.getSignedUploadUrl({
       bucket: file.s3Bucket,
       key: file.s3Key,
-      encoding: params.encoding,
+      contentType: params.type,
+      contentEncoding: params.encoding,
     });
 
     return {fileId: file.id, signedUploadUrl};

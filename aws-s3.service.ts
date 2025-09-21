@@ -300,12 +300,14 @@ export class AwsS3Service {
   async getSignedUploadUrl(params: {
     bucket?: string;
     key: string;
-    encoding?: string;
+    contentType?: string;
+    contentEncoding?: string;
   }) {
     const command = new PutObjectCommand({
       Bucket: params.bucket ?? this.bucket,
       Key: params.key,
-      ContentEncoding: params.encoding,
+      ContentType: params.contentType,
+      ContentEncoding: params.contentEncoding,
     });
 
     return await getSignedUrl(this.client, command, {
