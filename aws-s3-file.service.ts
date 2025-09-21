@@ -463,7 +463,7 @@ export class AwsS3FileService {
    */
   async getSignedUploadUrl(params: {
     name?: string;
-    type?: string;
+    mimeType?: string;
     size?: number;
     encoding?: string;
     parentId?: string;
@@ -482,7 +482,7 @@ export class AwsS3FileService {
     const file = await this.prisma.s3File.create({
       data: {
         name: params.name,
-        type: params.type,
+        type: params.mimeType,
         size: params.size,
         s3Bucket: this.bucket,
         s3Key: s3Key,
@@ -494,7 +494,7 @@ export class AwsS3FileService {
     const signedUploadUrl = await this.s3.getSignedUploadUrl({
       bucket: file.s3Bucket,
       key: file.s3Key,
-      contentType: params.type,
+      contentType: params.mimeType,
       contentEncoding: params.encoding,
     });
 
