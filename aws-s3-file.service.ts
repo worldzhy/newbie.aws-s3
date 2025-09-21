@@ -462,12 +462,15 @@ export class AwsS3FileService {
    * https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/userguide/PresignedUrlUploadObject.html
    */
   async getSignedUploadUrl(params: {
-    name: string;
-    type: string;
-    size: number;
+    name?: string;
+    type?: string;
+    size?: number;
+    encoding?: string;
     parentId?: string;
     path?: string;
   }) {
+    params.name = params.name || generateUuid();
+
     // [step 1] Generate s3Key.
     const s3Key = await this.generateS3Key({
       name: params.name,
@@ -487,10 +490,14 @@ export class AwsS3FileService {
       },
     });
 
-    return await this.s3.getSignedUploadUrl({
+    // [step 3] Get a signed URL.
+    const signedUploadUrl = await this.s3.getSignedUploadUrl({
       bucket: file.s3Bucket,
       key: file.s3Key,
+      encoding: params.encoding,
     });
+
+    return {fileId: file.id, signedUploadUrl};
   }
 
   /*

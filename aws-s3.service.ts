@@ -297,10 +297,15 @@ export class AwsS3Service {
   }
 
   /** Get a signed URL to upload an S3 object for signedUrlExpiresIn seconds */
-  async getSignedUploadUrl(params: {bucket?: string; key: string}) {
+  async getSignedUploadUrl(params: {
+    bucket?: string;
+    key: string;
+    encoding?: string;
+  }) {
     const command = new PutObjectCommand({
       Bucket: params.bucket ?? this.bucket,
       Key: params.key,
+      ContentEncoding: params.encoding,
     });
 
     return await getSignedUrl(this.client, command, {

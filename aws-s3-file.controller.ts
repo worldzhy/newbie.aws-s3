@@ -132,9 +132,9 @@ export class AwsS3FileController {
     return await this.s3File.getSignedDownloadUrl(fileId);
   }
 
-  //*********************/
-  //* Upload operations */
-  //*********************/
+  //**********************/
+  //* Upload actual file */
+  //**********************/
 
   @Post('upload')
   @UseInterceptors(FileInterceptor('file')) // Receive file

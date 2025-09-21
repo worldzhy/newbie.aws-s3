@@ -97,6 +97,11 @@ export class CreateFileRequestDto {
   @IsNumber()
   size: number;
 
+  @ApiProperty({type: String, required: false})
+  @IsOptional()
+  @IsString()
+  encoding?: string;
+
   @ApiProperty({
     type: String,
     required: false,
