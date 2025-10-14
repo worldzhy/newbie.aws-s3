@@ -191,6 +191,7 @@ export class AwsS3FileService {
 
     // [step 1] Check if a file with the same name exists in the same folder.
     let existingFile: {id: string; s3Key: string} | null = null;
+    let origionalName: string;
     if (params.name) {
       existingFile = await this.prisma.s3File.findFirst({
         where: {
@@ -200,8 +201,9 @@ export class AwsS3FileService {
         },
         select: {id: true, s3Key: true},
       });
+      origionalName = params.name;
     } else {
-      params.name = generateUuid();
+      origionalName = generateUuid();
     }
 
     // [step 2]  Generate s3Key and name based on whether the file exists and the overwrite option.
@@ -209,16 +211,16 @@ export class AwsS3FileService {
     let s3Key: string;
     if (existingFile) {
       if (params.overwrite) {
-        name = params.name;
+        name = origionalName;
         s3Key = existingFile.s3Key;
       } else {
-        const ext = extname(params.name);
+        const ext = extname(origionalName);
         const randomStr = await generateRandomString(6);
 
         name =
           ext === ''
-            ? params.name + randomStr
-            : params.name.slice(0, -ext.length) + randomStr + ext;
+            ? origionalName + randomStr
+            : origionalName.slice(0, -ext.length) + randomStr + ext;
 
         if (params.parentId) {
           s3Key = (await this.getFilePathString(params.parentId)) + `/${name}`;
@@ -228,10 +230,10 @@ export class AwsS3FileService {
       }
     } else {
       if (params.parentId) {
-        name = params.name;
+        name = origionalName;
         s3Key = (await this.getFilePathString(params.parentId)) + `/${name}`;
       } else {
-        name = params.name;
+        name = origionalName;
         s3Key = name;
       }
     }
@@ -256,7 +258,7 @@ export class AwsS3FileService {
     } else {
       return await this.prisma.s3File.create({
         data: {
-          name: params.name,
+          name: name,
           type: params.type,
           size: params.size,
           s3Bucket: this.bucket,
