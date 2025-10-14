@@ -516,7 +516,7 @@ export class AwsS3FileService {
     });
 
     if (file) {
-      return this.s3.getSignedDownloadUrl({
+      return await this.s3.getSignedDownloadUrl({
         bucket: file.s3Bucket,
         key: file.s3Key,
       });
