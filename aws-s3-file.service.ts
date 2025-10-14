@@ -471,11 +471,11 @@ export class AwsS3FileService {
     parentId?: string;
     path?: string;
   }) {
-    params.name = params.name || generateUuid();
+    const name = params.name || generateUuid();
 
     // [step 1] Generate s3Key.
     const s3Key = await this.generateS3Key({
-      name: params.name,
+      name: name,
       parentId: params.parentId,
       path: params.path,
     });
@@ -483,7 +483,7 @@ export class AwsS3FileService {
     // [step 2] Create a record.
     const file = await this.prisma.s3File.create({
       data: {
-        name: params.name,
+        name: name,
         type: params.mimeType,
         size: params.size,
         s3Bucket: this.bucket,
