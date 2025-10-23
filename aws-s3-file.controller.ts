@@ -152,23 +152,8 @@ export class AwsS3FileController {
   }
 
   @Post('upload-base64')
-  async uploadBase64(@Body() body: UploadBase64RequestDto) {
-    const {base64, ...others} = body;
-
-    // Convert base64 to buffer
-    const base64Data = base64.replace(/^data:([\w\/]+);base64,/, '');
-    const buffer = Buffer.from(base64Data, 'base64');
-
-    // Extract mimetype from base64 string
-    const mimetypeMatch = base64.match(/^data:([\w\/]+);base64,/);
-    const mimetype = mimetypeMatch ? mimetypeMatch[1] : '';
-
-    return await this.s3File.uploadFile({
-      buffer: buffer,
-      type: mimetype,
-      size: buffer.length,
-      ...others,
-    });
+  async uploadBase64String(@Body() body: UploadBase64RequestDto) {
+    return await this.s3File.uploadBase64String(body);
   }
 
   //*******************************/

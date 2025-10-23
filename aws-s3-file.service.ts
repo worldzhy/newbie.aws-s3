@@ -271,6 +271,32 @@ export class AwsS3FileService {
     }
   }
 
+  /** Upload a base64 string as a file to AWS S3. */
+  async uploadBase64String(params: {
+    parentId?: string;
+    path?: string;
+    base64: string;
+    name?: string;
+    overwrite?: boolean;
+  }) {
+    const {base64, ...others} = params;
+
+    // Convert base64 to buffer
+    const base64Data = base64.replace(/^data:([\w\/]+);base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    // Extract mimetype from base64 string
+    const mimetypeMatch = base64.match(/^data:([\w\/]+);base64,/);
+    const mimetype = mimetypeMatch ? mimetypeMatch[1] : '';
+
+    return await this.uploadFile({
+      buffer: buffer,
+      type: mimetype,
+      size: buffer.length,
+      ...others,
+    });
+  }
+
   // Get the file body by ID.
   async getFileBody(fileId: string) {
     const file = await this.prisma.s3File.findFirstOrThrow({
