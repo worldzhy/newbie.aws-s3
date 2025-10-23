@@ -109,7 +109,7 @@ export class AwsS3FileService {
   }
 
   /** Create a folder in AWS S3, then create a record in the database. */
-  async createFolder(params: {
+  async createOrGetFolder(params: {
     path: string; // The folder path, e.g. 'uploads', 'uploads/images'.
     parentId?: string; // The parent folder ID, if not provided, the folder will be created in the root directory.
   }) {
@@ -184,7 +184,7 @@ export class AwsS3FileService {
 
     // Create or get the parent folder if path is provided.
     if (params.path) {
-      params.parentId = await this.createFolder({
+      params.parentId = await this.createOrGetFolder({
         path: params.path,
       });
     }

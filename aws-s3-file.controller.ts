@@ -79,7 +79,7 @@ export class AwsS3FileController {
     description: 'Create a folder in AWS S3',
   })
   async createFolder(@Body() body: CreateFolderRequestDto) {
-    return await this.s3File.createFolder({
+    return await this.s3File.createOrGetFolder({
       path: body.name,
       parentId: body.parentId,
     });
@@ -122,8 +122,18 @@ export class AwsS3FileController {
     return await this.s3File.deleteFile(id);
   }
 
+  //**********************/
+  //* Use signed URL     */
+  //**********************/
+
+  /** It would be better if the business layer reimplements this interface */
   @Post('signedUploadUrl')
   async getSignedUploadUrl(@Body() body: CreateFileRequestDto) {
+    // Specify a folder for the specific scenario
+    // const folderId = await this.s3File.createOrGetFolder({
+    //   path: this.s3File.getSystemFolderPath() + 'avatars' + '/' + userId,
+    // });
+
     return await this.s3File.getSignedUploadUrl(body);
   }
 
