@@ -297,8 +297,8 @@ export class AwsS3FileService {
     });
   }
 
-  // Get the file body by ID.
-  async getFileBody(fileId: string) {
+  // Get object from AWS S3 by file ID.
+  async getFileObject(fileId: string) {
     const file = await this.prisma.s3File.findFirstOrThrow({
       where: {id: fileId},
       select: {s3Bucket: true, s3Key: true},
