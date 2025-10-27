@@ -310,6 +310,15 @@ export class AwsS3FileService {
     });
   }
 
+  async getFileBuffer(fileId: string) {
+    const object = await this.getFileObject(fileId);
+    if (!object.Body) {
+      throw new Error('File not found');
+    }
+
+    return Buffer.from((await object.Body.transformToByteArray()).buffer);
+  }
+
   // Get the file path.
   async getFilePath(fileId: string) {
     const path: object[] = [];
