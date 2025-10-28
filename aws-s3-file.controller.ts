@@ -33,6 +33,7 @@ import {
   AbortMultipartUploadRequestDto,
   RenameFileResponseDto,
   MoveFileRequestDto,
+  GetSignedUploadUrlResponseDto,
 } from './aws-s3-file.dto';
 import {Prisma} from '@prisma/client';
 import {AwsS3FileService} from './aws-s3-file.service';
@@ -128,6 +129,7 @@ export class AwsS3FileController {
 
   /** It would be better if the business layer reimplements this interface */
   @Post('signedUploadUrl')
+  @ApiResponse({type: GetSignedUploadUrlResponseDto})
   async getSignedUploadUrl(@Body() body: CreateFileRequestDto) {
     // Specify a folder for the specific scenario
     // const folderId = await this.s3File.createOrGetFolder({

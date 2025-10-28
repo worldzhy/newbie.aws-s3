@@ -13,6 +13,14 @@ import {
 } from '@framework/common.dto';
 import {FileEntity} from './aws-s3-file.entity';
 
+export class GetSignedUploadUrlResponseDto {
+  @ApiProperty({type: String})
+  fileId: string;
+
+  @ApiProperty({type: String})
+  signedUploadUrl: string;
+}
+
 export class CreateFileResponseDto {
   @ApiProperty({type: String})
   id: string;
