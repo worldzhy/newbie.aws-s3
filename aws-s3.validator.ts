@@ -1,8 +1,7 @@
 import validator from 'validator';
 
 export function verifyRegion(region: string) {
-  const pattern =
-    /(us(-gov)?|ap|ca|cn|eu|sa)-(central|(north|south)?(east|west)?)-\d/g;
+  const pattern = /(us(-gov)?|ap|ca|cn|eu|sa)-(central|(north|south)?(east|west)?)-\d/g;
   return pattern.test(region);
 }
 

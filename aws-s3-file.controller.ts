@@ -1,21 +1,5 @@
-import {
-  Get,
-  Body,
-  Post,
-  Param,
-  Patch,
-  Query,
-  Delete,
-  Controller,
-  UploadedFile,
-  UseInterceptors,
-} from '@nestjs/common';
-import {
-  ApiTags,
-  ApiResponse,
-  ApiOperation,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import {Get, Body, Post, Param, Patch, Query, Delete, Controller, UploadedFile, UseInterceptors} from '@nestjs/common';
+import {ApiTags, ApiResponse, ApiOperation, ApiBearerAuth} from '@nestjs/swagger';
 import {
   CreateFileRequestDto,
   CreateFolderRequestDto,
@@ -97,10 +81,7 @@ export class AwsS3FileController {
 
   @Patch(':fileId/rename')
   @ApiResponse({type: RenameFileResponseDto})
-  async renameFile(
-    @Param('fileId') fileId: string,
-    @Body() body: RenameFileRequestDto
-  ) {
+  async renameFile(@Param('fileId') fileId: string, @Body() body: RenameFileRequestDto) {
     return await this.prisma.s3File.update({
       where: {id: fileId},
       data: {name: body.name},
@@ -108,10 +89,7 @@ export class AwsS3FileController {
   }
 
   @Patch(':fileId/move')
-  async moveFile(
-    @Param('fileId') fileId: string,
-    @Body() body: MoveFileRequestDto
-  ) {
+  async moveFile(@Param('fileId') fileId: string, @Body() body: MoveFileRequestDto) {
     return await this.s3File.moveFileOrFolder({
       fileId,
       destinationParentId: body.destinationParentId,
@@ -150,10 +128,7 @@ export class AwsS3FileController {
 
   @Post('upload')
   @UseInterceptors(FileInterceptor('file')) // Receive file
-  async uploadFile(
-    @Body() body: UploadFileRequestDto,
-    @UploadedFile() file: Express.Multer.File
-  ) {
+  async uploadFile(@Body() body: UploadFileRequestDto, @UploadedFile() file: Express.Multer.File) {
     return await this.s3File.uploadFile({
       buffer: file.buffer,
       name: file.originalname,
@@ -180,20 +155,13 @@ export class AwsS3FileController {
 
   @Post('upload-part')
   @ApiResponse({type: UploadPartResponseDto})
-  @UseInterceptors(
-    FileInterceptor('chunk', {limits: {fileSize: 6 * 1024 * 1024}})
-  )
-  async uploadPart(
-    @Body() body: UploadPartRequestDto,
-    @UploadedFile() chunk: Express.Multer.File
-  ) {
+  @UseInterceptors(FileInterceptor('chunk', {limits: {fileSize: 6 * 1024 * 1024}}))
+  async uploadPart(@Body() body: UploadPartRequestDto, @UploadedFile() chunk: Express.Multer.File) {
     return await this.s3File.uploadPart({body: chunk.buffer, ...body});
   }
 
   @Post('complete-multipart')
-  async completeMultipartUpload(
-    @Body() body: CompleteMultipartUploadRequestDto
-  ) {
+  async completeMultipartUpload(@Body() body: CompleteMultipartUploadRequestDto) {
     return await this.s3File.completeMultipartUpload(body);
   }
 

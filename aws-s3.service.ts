@@ -26,16 +26,10 @@ export class AwsS3Service {
   constructor(private readonly config: ConfigService) {
     this.bucket = this.config.getOrThrow<string>('microservices.aws-s3.bucket');
     this.region = this.config.getOrThrow<string>('microservices.aws-s3.region');
-    this.signedUrlExpiresIn = this.config.getOrThrow<number>(
-      'microservices.aws-s3.signedUrlExpiresIn'
-    );
+    this.signedUrlExpiresIn = this.config.getOrThrow<number>('microservices.aws-s3.signedUrlExpiresIn');
 
-    const accessKeyId = this.config.get<string>(
-      'microservices.aws-s3.accessKeyId'
-    );
-    const secretAccessKey = this.config.get<string>(
-      'microservices.aws-s3.secretAccessKey'
-    );
+    const accessKeyId = this.config.get<string>('microservices.aws-s3.accessKeyId');
+    const secretAccessKey = this.config.get<string>('microservices.aws-s3.secretAccessKey');
     if (accessKeyId && secretAccessKey) {
       this.client = new S3Client({
         region: this.region,
@@ -53,15 +47,11 @@ export class AwsS3Service {
   //*********************/
 
   async createBucket(bucketName: string) {
-    return await this.client.send(
-      new CreateBucketCommand({Bucket: bucketName})
-    );
+    return await this.client.send(new CreateBucketCommand({Bucket: bucketName}));
   }
 
   async deleteBucket(bucketName: string) {
-    return await this.client.send(
-      new DeleteBucketCommand({Bucket: bucketName})
-    );
+    return await this.client.send(new DeleteBucketCommand({Bucket: bucketName}));
   }
 
   //*********************/
@@ -77,11 +67,7 @@ export class AwsS3Service {
     );
   }
 
-  async putObject(params: {
-    bucket?: string;
-    key: string;
-    body?: Buffer | string;
-  }) {
+  async putObject(params: {bucket?: string; key: string; body?: Buffer | string}) {
     return await this.client.send(
       new PutObjectCommand({
         Bucket: params.bucket ?? this.bucket,
@@ -91,34 +77,22 @@ export class AwsS3Service {
     );
   }
 
-  async copyObject(params: {
-    bucket?: string;
-    sourceKey: string;
-    destinationKey: string;
-  }) {
+  async copyObject(params: {bucket?: string; sourceKey: string; destinationKey: string}) {
     return await this.client.send(
       new CopyObjectCommand({
         Bucket: params.bucket ?? this.bucket,
-        CopySource: params.bucket
-          ? `${params.bucket}/${params.sourceKey}`
-          : `${this.bucket}/${params.sourceKey}`,
+        CopySource: params.bucket ? `${params.bucket}/${params.sourceKey}` : `${this.bucket}/${params.sourceKey}`,
         Key: params.destinationKey,
       })
     );
   }
 
-  async moveObject(params: {
-    bucket?: string;
-    sourceKey: string;
-    destinationKey: string;
-  }) {
+  async moveObject(params: {bucket?: string; sourceKey: string; destinationKey: string}) {
     // [step 1] Copy the object to the new location
     await this.client.send(
       new CopyObjectCommand({
         Bucket: params.bucket ?? this.bucket,
-        CopySource: params.bucket
-          ? `${params.bucket}/${params.sourceKey}`
-          : `${this.bucket}/${params.sourceKey}`,
+        CopySource: params.bucket ? `${params.bucket}/${params.sourceKey}` : `${this.bucket}/${params.sourceKey}`,
         Key: params.destinationKey,
       })
     );
@@ -266,11 +240,7 @@ export class AwsS3Service {
     );
   }
 
-  async abortMultipartUpload(params: {
-    bucket?: string;
-    key: string;
-    uploadId: string;
-  }) {
+  async abortMultipartUpload(params: {bucket?: string; key: string; uploadId: string}) {
     return await this.client.send(
       new AbortMultipartUploadCommand({
         Bucket: params.bucket ?? this.bucket,
@@ -297,12 +267,7 @@ export class AwsS3Service {
   }
 
   /** Get a signed URL to upload an S3 object for signedUrlExpiresIn seconds */
-  async getSignedUploadUrl(params: {
-    bucket?: string;
-    key: string;
-    contentType?: string;
-    contentEncoding?: string;
-  }) {
+  async getSignedUploadUrl(params: {bucket?: string; key: string; contentType?: string; contentEncoding?: string}) {
     const command = new PutObjectCommand({
       Bucket: params.bucket ?? this.bucket,
       Key: params.key,
@@ -316,12 +281,7 @@ export class AwsS3Service {
   }
 
   /** Get a signed URL to upload a part in a multipart upload */
-  async getSignedMultipartUploadUrl(params: {
-    bucket?: string;
-    key: string;
-    partNumber: number;
-    uploadId: string;
-  }) {
+  async getSignedMultipartUploadUrl(params: {bucket?: string; key: string; partNumber: number; uploadId: string}) {
     const command = new UploadPartCommand({
       Bucket: params.bucket ?? this.bucket,
       Key: params.key,

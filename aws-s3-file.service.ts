@@ -1,10 +1,7 @@
 import {Injectable} from '@nestjs/common';
 import {ConfigService} from '@nestjs/config';
 import {PrismaService} from '@framework/prisma/prisma.service';
-import {
-  generateRandomString,
-  generateUuid,
-} from '@framework/utilities/random.util';
+import {generateRandomString, generateUuid} from '@framework/utilities/random.util';
 import {S3File} from '@prisma/client';
 import {extname} from 'path';
 import {AwsS3Service} from './aws-s3.service';
@@ -24,9 +21,7 @@ export class AwsS3FileService {
   ) {
     this.bucket = this.config.getOrThrow<string>('microservices.aws-s3.bucket');
     this.region = this.config.getOrThrow<string>('microservices.aws-s3.region');
-    this.cdnHostname = this.config.get<string>(
-      'microservices.aws-s3.cdnHostname'
-    );
+    this.cdnHostname = this.config.get<string>('microservices.aws-s3.cdnHostname');
   }
 
   getSystemFolderPath() {
@@ -41,9 +36,7 @@ export class AwsS3FileService {
     // [step 1] Check if the s3File table is empty.
     const count = await this.prisma.s3File.count();
     if (count > 0) {
-      throw new Error(
-        'The s3File table is not empty. Please clear the table before syncing.'
-      );
+      throw new Error('The s3File table is not empty. Please clear the table before syncing.');
     }
 
     // [step 2] Get all objects from S3 bucket.
@@ -138,11 +131,7 @@ export class AwsS3FileService {
       } else {
         let s3Key: string;
         if (parentId) {
-          s3Key =
-            (await this.getFilePathString(parentId)) +
-            '/' +
-            folderNames[i] +
-            '/';
+          s3Key = (await this.getFilePathString(parentId)) + '/' + folderNames[i] + '/';
         } else {
           s3Key = folderNames[i] + '/';
         }
@@ -177,9 +166,7 @@ export class AwsS3FileService {
   }) {
     // Validate parameters
     if (params.path && params.parentId) {
-      throw new Error(
-        'Do not use both `parentId` and `path` at the same time.'
-      );
+      throw new Error('Do not use both `parentId` and `path` at the same time.');
     }
 
     // Create or get the parent folder if path is provided.
@@ -217,10 +204,7 @@ export class AwsS3FileService {
         const ext = extname(origionalName);
         const randomStr = await generateRandomString(6);
 
-        name =
-          ext === ''
-            ? origionalName + randomStr
-            : origionalName.slice(0, -ext.length) + randomStr + ext;
+        name = ext === '' ? origionalName + randomStr : origionalName.slice(0, -ext.length) + randomStr + ext;
 
         if (params.parentId) {
           s3Key = (await this.getFilePathString(params.parentId)) + `/${name}`;
@@ -394,13 +378,7 @@ export class AwsS3FileService {
   //* Multipart upload operations */
   //*******************************/
 
-  async createMultipartUpload(params: {
-    name: string;
-    type: string;
-    size: number;
-    parentId?: string;
-    path?: string;
-  }) {
+  async createMultipartUpload(params: {name: string; type: string; size: number; parentId?: string; path?: string}) {
     // [step 1] Generate s3Key.
     const s3Key = await this.generateS3Key({
       name: params.name,
@@ -451,10 +429,7 @@ export class AwsS3FileService {
     });
   }
 
-  async completeMultipartUpload(params: {
-    uploadId: string;
-    parts: {ETag: string; PartNumber: number}[];
-  }) {
+  async completeMultipartUpload(params: {uploadId: string; parts: {ETag: string; PartNumber: number}[]}) {
     const file = await this.prisma.s3File.findFirstOrThrow({
       where: {uploadId: params.uploadId},
     });
@@ -599,17 +574,11 @@ export class AwsS3FileService {
     return path;
   }
 
-  private async generateS3Key(params: {
-    name: string;
-    parentId?: string;
-    path?: string;
-  }) {
+  private async generateS3Key(params: {name: string; parentId?: string; path?: string}) {
     let s3Key: string;
 
     if (params.parentId) {
-      s3Key =
-        (await this.getFilePathString(params.parentId)) +
-        `/${generateUuid()}${extname(params.name)}`;
+      s3Key = (await this.getFilePathString(params.parentId)) + `/${generateUuid()}${extname(params.name)}`;
     } else if (params.path) {
       s3Key = `${params.path}/${generateUuid()}${extname(params.name)}`;
     } else {
@@ -652,8 +621,7 @@ export class AwsS3FileService {
 
     let destinationS3Key: string;
     if (destinationParentId) {
-      destinationS3Key =
-        (await this.getFilePathString(destinationParentId)) + `/${file.name}`;
+      destinationS3Key = (await this.getFilePathString(destinationParentId)) + `/${file.name}`;
     } else {
       destinationS3Key = file.name;
     }

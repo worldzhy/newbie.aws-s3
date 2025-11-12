@@ -1,16 +1,7 @@
 import {ApiProperty} from '@nestjs/swagger';
-import {
-  IsArray,
-  IsNumber,
-  IsString,
-  MinLength,
-  IsOptional,
-} from 'class-validator';
+import {IsArray, IsNumber, IsString, MinLength, IsOptional} from 'class-validator';
 import {Type} from 'class-transformer';
-import {
-  CommonListRequestDto,
-  CommonListResponseDto,
-} from '@framework/common.dto';
+import {CommonListRequestDto, CommonListResponseDto} from '@framework/common.dto';
 import {FileEntity} from './aws-s3-file.entity';
 
 export class GetSignedUploadUrlResponseDto {
@@ -54,8 +45,7 @@ export class ListFilesRequestDto extends CommonListRequestDto {
   @ApiProperty({
     type: String,
     required: false,
-    description:
-      'The folder ID to list files in, if not provided, lists root files.',
+    description: 'The folder ID to list files in, if not provided, lists root files.',
   })
   @IsOptional()
   @IsString()
@@ -113,8 +103,7 @@ export class CreateFileRequestDto {
   @ApiProperty({
     type: String,
     required: false,
-    description:
-      'The folder ID to create the file in, do not use both `parentId` and `path` at the same time.',
+    description: 'The folder ID to create the file in, do not use both `parentId` and `path` at the same time.',
   })
   @IsOptional()
   @IsString()
@@ -123,8 +112,7 @@ export class CreateFileRequestDto {
   @ApiProperty({
     type: String,
     required: false,
-    description:
-      'The folder path to upload the file, e.g. "uploads", not including "/" at the end.',
+    description: 'The folder path to upload the file, e.g. "uploads", not including "/" at the end.',
   })
   @IsOptional()
   @IsString()
@@ -183,8 +171,7 @@ export class UploadFileRequestDto {
   @ApiProperty({
     type: String,
     required: false,
-    description:
-      'The parent folder ID to upload the file to, do not use both `parentId` and `path` at the same time.',
+    description: 'The parent folder ID to upload the file to, do not use both `parentId` and `path` at the same time.',
   })
   @IsOptional()
   @IsString()
@@ -193,8 +180,7 @@ export class UploadFileRequestDto {
   @ApiProperty({
     type: String,
     required: false,
-    description:
-      'The folder path to upload the file, e.g. "uploads", not including "/" at the end.',
+    description: 'The folder path to upload the file, e.g. "uploads", not including "/" at the end.',
   })
   @IsOptional()
   @IsString()
@@ -215,8 +201,7 @@ export class UploadBase64RequestDto {
   @ApiProperty({
     type: String,
     required: false,
-    description:
-      'The parent folder ID to upload the file to, do not use both `parentId` and `path` at the same time.',
+    description: 'The parent folder ID to upload the file to, do not use both `parentId` and `path` at the same time.',
   })
   @IsOptional()
   @IsString()
@@ -225,8 +210,7 @@ export class UploadBase64RequestDto {
   @ApiProperty({
     type: String,
     required: false,
-    description:
-      'The folder path to upload the file, e.g. "uploads", not including "/" at the end.',
+    description: 'The folder path to upload the file, e.g. "uploads", not including "/" at the end.',
   })
   @IsOptional()
   @IsString()
