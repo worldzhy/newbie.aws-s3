@@ -2,7 +2,7 @@ import {Injectable} from '@nestjs/common';
 import {ConfigService} from '@nestjs/config';
 import {PrismaService} from '@framework/prisma/prisma.service';
 import {generateRandomString, generateUuid} from '@framework/utilities/random.util';
-import {S3File} from '@prisma/client';
+import {S3File} from '@generated/prisma/client';
 import {extname} from 'path';
 import {AwsS3Service} from './aws-s3.service';
 

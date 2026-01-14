@@ -19,7 +19,7 @@ import {
   MoveFileRequestDto,
   GetSignedUploadUrlResponseDto,
 } from './aws-s3-file.dto';
-import {Prisma} from '@prisma/client';
+import {Prisma} from '@generated/prisma/client';
 import {AwsS3FileService} from './aws-s3-file.service';
 import {FileInterceptor} from '@nestjs/platform-express';
 import {PrismaService} from '@framework/prisma/prisma.service';
