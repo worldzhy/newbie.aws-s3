@@ -17,12 +17,12 @@
     "AWS_S3_SIGNED_URL_EXPIRESIN": "1800"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.837.0",
-    "@aws-sdk/s3-request-presigner": "^3.837.0",
-    "validator": "^13.11.0"
+    "@aws-sdk/client-s3": "latest",
+    "@aws-sdk/s3-request-presigner": "latest",
+    "validator": "latest"
   },
   "devDependencies": {
-    "@types/multer": "^1.4.12",
-    "@types/validator": "^13.11.7"
+    "@types/multer": "latest",
+    "@types/validator": "latest"
   }
 }
